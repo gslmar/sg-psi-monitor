@@ -95,6 +95,7 @@
     background: var(--card); color: var(--text); border-radius: 8px; padding: 3px 8px;
     border: 2px solid; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 11px; line-height: 1.2;
   }
+  .zone-label div { cursor: pointer; }
   .zone-label b { display: block; font-size: 18px; }
   .zone-label .over { animation: pulse 0.8s infinite alternate; }
   .leaflet-popup-content { font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -148,7 +149,7 @@
   <section class="card map-card">
     <div class="map-head">
       <h2>Haze map by zone</h2>
-      <span class="sub">Zone boundaries are approximate · click a zone for pollutant details</span>
+      <span class="sub">Click a zone reading for pollutant details</span>
     </div>
     <div id="map" role="img" aria-label="Map of Singapore's five PSI zones coloured by current 24-hr PSI"></div>
     <div class="band-legend" id="bandLegend"></div>
@@ -363,17 +364,8 @@ function renderChart(items) {
 }
 
 // ---------- Zone map ----------
-// NEA doesn't publish exact PSI zone boundaries: these split the island around a central block.
-const C = { n: 1.385, s: 1.29, w: 103.775, e: 103.885 };          // central block
-const O = { n: 1.47, s: 1.20, w: 103.59, e: 104.09 };              // outer extent (land + nearby islands)
-const ZONES = {
-  central: [[C.n, C.w], [C.n, C.e], [C.s, C.e], [C.s, C.w]],
-  north:   [[O.n, 103.70], [O.n, 103.93], [C.n, C.e], [C.n, C.w]],
-  east:    [[O.n, 103.93], [O.n, O.e], [O.s, O.e], [O.s, 103.92], [C.s, C.e], [C.n, C.e]],
-  south:   [[C.s, C.w], [C.s, C.e], [O.s, 103.92], [O.s, 103.74]],
-  west:    [[O.n, O.w], [O.n, 103.70], [C.n, C.w], [C.s, C.w], [O.s, 103.74], [O.s, O.w]],
-};
-const LABEL_AT = { north: [1.425, 103.82], south: [1.262, 103.83], east: [1.355, 103.96], west: [1.355, 103.70], central: [1.338, 103.83] };
+// Label points from the API's regionMetadata
+const LABEL_AT = { north: [1.41803, 103.82], south: [1.29587, 103.82], east: [1.35735, 103.94], west: [1.35735, 103.70], central: [1.35735, 103.82] };
 const POLLUTANTS = [
   ["pm25_twenty_four_hourly", "PM2.5 (24-hr)", "µg/m³"],
   ["pm10_twenty_four_hourly", "PM10 (24-hr)", "µg/m³"],
@@ -383,7 +375,7 @@ const POLLUTANTS = [
   ["co_eight_hour_max", "CO (8-hr max)", "mg/m³"],
 ];
 let map = null;
-const zoneShapes = {}, zoneLabels = {};
+const zoneLabels = {};
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
 function initMap() {
@@ -399,8 +391,7 @@ function initMap() {
   }).addTo(map);
 
   REGIONS.forEach(r => {
-    zoneShapes[r] = L.polygon(ZONES[r], { weight: 1.5, color: "#666", fillOpacity: 0.35 }).addTo(map);
-    zoneLabels[r] = L.marker(LABEL_AT[r], { interactive: false, icon: L.divIcon({ className: "zone-label", html: "" }) }).addTo(map);
+    zoneLabels[r] = L.marker(LABEL_AT[r], { icon: L.divIcon({ className: "zone-label", html: "" }) }).addTo(map);
   });
 }
 
@@ -409,15 +400,14 @@ function renderMap(latest) {
   const rd = latest.readings, psi = rd.psi_twenty_four_hourly;
   REGIONS.forEach(r => {
     const v = psi[r], col = bandColor(v), over = v >= threshold;
-    zoneShapes[r].setStyle({ fillColor: col, color: over ? bandColor(301) : col, weight: over ? 4 : 1.5, fillOpacity: over ? 0.55 : 0.35 });
-    zoneShapes[r].bindPopup(`
+    zoneLabels[r].bindPopup(`
       <strong>${cap(r)}</strong>: 24-hr PSI <strong style="color:${col}">${v}</strong> (${band(v)[1]})
       <table>${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit]) =>
         `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td></tr>`).join("")}</table>
       <span style="color:#888">Reading at ${fmtTime(latest.timestamp)}</span>`);
     zoneLabels[r].setIcon(L.divIcon({
       className: "zone-label",
-      html: `<div class="${over ? "over" : ""}" style="border-color:${col}">${cap(r)}<b style="color:${col}">${v}</b></div>`,
+      html: `<div class="${over ? "over" : ""}" style="border-color:${over ? bandColor(301) : col}">${cap(r)}<b style="color:${col}">${v}</b></div>`,
     }));
   });
 }

@@ -5,7 +5,7 @@ Live haze monitor for Singapore that sounds an alarm when the 24-hr PSI reaches 
 **Live site:** https://gslmar.github.io/sg-psi-monitor/
 
 - Highest 24-hr PSI and readings for all five NEA regions, refreshed every 5 minutes
-- Haze map with zones shaded by PSI band; click a zone for PM2.5, PM10, O₃, NO₂, SO₂ and CO
+- Haze map with each zone's PSI reading; click a reading for PM2.5, PM10, O₃, NO₂, SO₂ and CO
 - 24-hour trend chart and NEA's daily PSI forecast
 - iPhone-style alarm, flashing banner and desktop notification when any region crosses the threshold
 
@@ -18,7 +18,7 @@ From [data.gov.sg](https://data.gov.sg) (no API key needed):
 - Live readings: `https://api-open.data.gov.sg/v2/real-time/api/psi`
 - Daily forecast: dataset `d_c2c7fa70f297cdaee13afbe53a900eb9`
 
-Zone boundaries on the map are approximate; NEA doesn't publish exact region boundaries. Map tiles © OpenStreetMap contributors.
+Map tiles © OpenStreetMap contributors.
 
 ## Command-line version
 
