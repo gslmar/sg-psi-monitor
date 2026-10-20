@@ -63,7 +63,10 @@ def fetch_forecast():
     if not records:
         return None
     latest = max(records, key=lambda r: r["forecast_date"])
-    return latest["forecast_date"], int(latest["forecast_lower_band"]), int(latest["forecast_upper_band"])
+    # data.gov.sg has used both *_band and *_bound field names
+    lower = latest.get("forecast_lower_bound", latest.get("forecast_lower_band"))
+    upper = latest.get("forecast_upper_bound", latest.get("forecast_upper_band"))
+    return latest["forecast_date"], int(float(lower)), int(float(upper))
 
 
 def alarm(title, message):

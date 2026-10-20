@@ -303,7 +303,10 @@ async function fetchForecast() {
   const recs = j.result?.records || [];
   if (!recs.length) return null;
   const r = recs.reduce((a, b) => (a.forecast_date > b.forecast_date ? a : b));
-  return { date: r.forecast_date, lower: +r.forecast_lower_band, upper: +r.forecast_upper_band };
+  // data.gov.sg has used both *_band and *_bound field names
+  const lower = +(r.forecast_lower_bound ?? r.forecast_lower_band), upper = +(r.forecast_upper_bound ?? r.forecast_upper_band);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper)) throw new Error("unrecognised forecast format");
+  return { date: r.forecast_date, lower, upper };
 }
 
 // ---------- Render ----------
