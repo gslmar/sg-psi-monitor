@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Singapore PSI Monitor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #16191d; --muted: #646b75; --border: #e3e6ea;
+    --good: #2e9e5b; --moderate: #2f7fd1; --unhealthy: #d9a21b; --very: #e0662a; --hazard: #c8312f;
+    --alarm-bg: #c8312f; --alarm-text: #fff; --warn-bg: #fff4d6; --warn-text: #6b4b00; --warn-border: #f0d68a;
+    --grid: #eceef1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111316; --card: #1a1d21; --text: #eceef1; --muted: #9aa1ab; --border: #2a2e34;
+      --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17; --grid: #24282d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111316; --card: #1a1d21; --text: #eceef1; --muted: #9aa1ab; --border: #2a2e34;
+    --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17; --grid: #24282d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button, input {
+    font: inherit; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); padding: 7px 12px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  input[type=number] { width: 80px; }
+  label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+  .banner { display: none; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .banner.show { display: flex; }
+  .banner.alarm { background: var(--alarm-bg); color: var(--alarm-text); animation: pulse 1s infinite alternate; }
+  .banner.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+  .banner strong { font-size: 17px; display: block; }
+  .banner button { background: #fff; color: #111; border: none; font-weight: 600; }
+  @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+  @media (prefers-reduced-motion: reduce) { .banner.alarm { animation: none; } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1.1fr 1fr; margin-bottom: 16px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+  .hero .label { color: var(--muted); font-size: 13px; }
+  .hero .big { font-size: 64px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; }
+  .hero .meta { margin-top: 10px; color: var(--muted); font-size: 13px; }
+
+  .regions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (max-width: 520px) { .regions { grid-template-columns: repeat(3, 1fr); } }
+  .region { border-radius: 10px; padding: 10px 8px; text-align: center; border: 1px solid var(--border); }
+  .region .name { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+  .region .val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .region .bar { height: 4px; border-radius: 2px; margin-top: 6px; }
+  .region.over { border-color: var(--hazard); box-shadow: inset 0 0 0 1px var(--hazard); }
+
+  .forecast { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 14px; }
+  .forecast b { font-variant-numeric: tabular-nums; }
+
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+  #chart { width: 100%; height: auto; display: block; }
+  #chart text { fill: var(--muted); font-size: 11px; }
+
+  .map-card { margin-bottom: 16px; }
+  .map-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+  #map { height: 400px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
+  @media (max-width: 520px) { #map { height: 300px; } }
+  .leaflet-tile-pane { filter: saturate(0.4); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.3); }
+  }
+  :root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.3); }
+  .band-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+  .band-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  .zone-label { background: none; border: none; }
+  .zone-label div {
+    transform: translate(-50%, -50%); display: inline-block; white-space: nowrap; text-align: center;
+    background: var(--card); color: var(--text); border-radius: 8px; padding: 3px 8px;
+    border: 2px solid; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 11px; line-height: 1.2;
+  }
+  .zone-label b { display: block; font-size: 18px; }
+  .zone-label .over { animation: pulse 0.8s infinite alternate; }
+  .leaflet-popup-content { font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .leaflet-popup-content table { border-collapse: collapse; }
+  .leaflet-popup-content td { padding: 1px 8px 1px 0; }
+  .leaflet-popup-content td + td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .log { margin-top: 16px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
+  .status-dot.on { background: var(--good); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Singapore PSI Monitor</h1>
+      <div class="sub"><span id="armDot" class="status-dot"></span><span id="armText">Alarm sound off: click "Arm alarm" to enable sound and notifications</span></div>
+    </div>
+    <div class="controls">
+      <label>Alarm at PSI ≥ <input id="threshold" type="number" min="1" max="500" value="200"></label>
+      <button id="armBtn" class="primary">Arm alarm</button>
+      <button id="testBtn">Test alarm</button>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <div id="alarmBanner" class="banner alarm" role="alert">
+    <div><strong id="alarmTitle"></strong><span id="alarmMsg"></span></div>
+    <button id="ackBtn">Acknowledge</button>
+  </div>
+  <div id="warnBanner" class="banner warn" role="status">
+    <div><strong id="warnTitle"></strong><span id="warnMsg"></span></div>
+    <button id="warnClose">Dismiss</button>
+  </div>
+
+  <div class="grid">
+    <section class="card hero">
+      <div class="label">Highest 24-hr PSI in Singapore</div>
+      <div class="big" id="maxVal">–</div>
+      <span class="pill" id="maxBand">Loading…</span>
+      <div class="meta" id="meta">Fetching latest readings…</div>
+    </section>
+    <section class="card">
+      <h2>By region</h2>
+      <div class="regions" id="regions"></div>
+      <div class="forecast" id="forecast">Forecast: loading…</div>
+    </section>
+  </div>
+
+  <section class="card map-card">
+    <div class="map-head">
+      <h2>Haze map by zone</h2>
+      <span class="sub">Zone boundaries are approximate · click a zone for pollutant details</span>
+    </div>
+    <div id="map" role="img" aria-label="Map of Singapore's five PSI zones coloured by current 24-hr PSI"></div>
+    <div class="band-legend" id="bandLegend"></div>
+  </section>
+
+  <section class="card">
+    <h2>Last 24 hours</h2>
+    <div class="legend" id="legend"></div>
+    <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="24-hour PSI trend by region"></svg>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<script>
+const REALTIME_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi";
+const FORECAST_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=d_c2c7fa70f297cdaee13afbe53a900eb9";
+const POLL_MS = 5 * 60 * 1000;
+const REGIONS = ["north", "south", "east", "west", "central"];
+const REGION_COLORS = { north: "#2f7fd1", south: "#2e9e5b", east: "#8a5cd6", west: "#e0662a", central: "#d13f8a" };
+const BANDS = [[50, "Good", "--good"], [100, "Moderate", "--moderate"], [200, "Unhealthy", "--unhealthy"], [300, "Very unhealthy", "--very"], [Infinity, "Hazardous", "--hazard"]];
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+let threshold = Number(store.get("psiThreshold")) || 200;
+$("threshold").value = threshold;
+let lastAlarmedReading = null, lastWarnedForecast = null;
+let latestItems = [];
+
+function band(psi) { return BANDS.find(b => psi <= b[0]); }
+function bandColor(psi) { return getComputedStyle(document.documentElement).getPropertyValue(band(psi)[2]).trim(); }
+function log(msg) {
+  const t = new Date().toLocaleTimeString("en-SG", { hour12: false });
+  $("log").insertAdjacentHTML("afterbegin", `<div>[${t}] ${msg}</div>`);
+}
+function sgDate(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 864e5);
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" }); // YYYY-MM-DD
+}
+function fmtTime(iso) {
+  return new Date(iso).toLocaleString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit", day: "numeric", month: "short" });
+}
+
+// ---------- Sound + notifications ----------
+let audioCtx = null, sirenTimer = null;
+function armAlarm() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume();
+  } catch {}
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().then(updateArmStatus);
+  updateArmStatus();
+}
+function updateArmStatus() {
+  const sound = audioCtx && audioCtx.state === "running";
+  const notif = "Notification" in window && Notification.permission === "granted";
+  $("armDot").classList.toggle("on", !!sound);
+  $("armText").textContent = sound
+    ? `Alarm armed: sound on, desktop notifications ${notif ? "on" : "off"}. Keep this tab open.`
+    : 'Alarm sound off: click "Arm alarm" to enable sound and notifications';
+  $("armBtn").textContent = sound ? "Armed ✓" : "Arm alarm";
+}
+function tone(freqFrom, freqTo, dur, when) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = "square";
+  o.frequency.setValueAtTime(freqFrom, when);
+  o.frequency.linearRampToValueAtTime(freqTo, when + dur);
+  g.gain.setValueAtTime(0.0001, when);
+  g.gain.exponentialRampToValueAtTime(0.25, when + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(when); o.stop(when + dur + 0.05);
+}
+// Bright bell-like ping (sine + soft overtone, fast decay), the building block of the iPhone "Radar" sound
+function ping(freq, when, dur = 0.12, vol = 0.35) {
+  [[1, vol], [2.76, vol * 0.25]].forEach(([mult, v]) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(freq * mult, when);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(v, when + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(when); o.stop(when + dur + 0.02);
+  });
+}
+// iPhone-style "Radar" alarm: bursts of four quick pings, repeating until acknowledged
+function startSiren() {
+  if (!audioCtx || sirenTimer) return;
+  const cycle = () => {
+    const t = audioCtx.currentTime;
+    for (let burst = 0; burst < 2; burst++)
+      for (let i = 0; i < 4; i++) ping(1568, t + burst * 0.62 + i * 0.105); // G6
+  };
+  cycle(); sirenTimer = setInterval(cycle, 1500);
+}
+function stopSiren() { clearInterval(sirenTimer); sirenTimer = null; }
+function chime() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime; tone(880, 880, 0.25, t); tone(660, 660, 0.35, t + 0.3);
+}
+function notify(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try { new Notification(title, { body, requireInteraction: true }); } catch {}
+  }
+}
+
+function raiseAlarm(title, msg) {
+  $("alarmTitle").textContent = title; $("alarmMsg").textContent = msg;
+  $("alarmBanner").classList.add("show");
+  document.title = "⚠ " + title;
+  startSiren(); notify(title, msg);
+  log("ALARM: " + title);
+}
+function ackAlarm() {
+  stopSiren(); $("alarmBanner").classList.remove("show");
+  document.title = "Singapore PSI Monitor";
+}
+function raiseWarning(title, msg) {
+  $("warnTitle").textContent = title; $("warnMsg").textContent = msg;
+  $("warnBanner").classList.add("show");
+  chime(); notify(title, msg);
+  log("WARNING: " + title);
+}
+
+// ---------- Data ----------
+async function getJson(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+async function fetchLive() {
+  const [today, yesterday] = await Promise.all([
+    getJson(`${REALTIME_URL}?date=${sgDate(0)}`),
+    getJson(`${REALTIME_URL}?date=${sgDate(-1)}`).catch(() => null),
+  ]);
+  if (today.code !== 0) throw new Error(today.errorMsg || "unexpected response");
+  const items = [...today.data.items, ...(yesterday?.data?.items || [])]
+    .filter(i => i.readings?.psi_twenty_four_hourly)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  if (!items.length) { // just after midnight today's list can be empty: fall back to latest
+    const latest = await getJson(REALTIME_URL);
+    items.push(...latest.data.items);
+  }
+  return items.slice(-24);
+}
+async function fetchForecast() {
+  const j = await getJson(FORECAST_URL);
+  const recs = j.result?.records || [];
+  if (!recs.length) return null;
+  const r = recs.reduce((a, b) => (a.forecast_date > b.forecast_date ? a : b));
+  return { date: r.forecast_date, lower: +r.forecast_lower_band, upper: +r.forecast_upper_band };
+}
+
+// ---------- Render ----------
+function renderLive(items) {
+  const latest = items[items.length - 1];
+  const psi = latest.readings.psi_twenty_four_hourly;
+  const worstRegion = REGIONS.reduce((a, b) => (psi[b] > psi[a] ? b : a));
+  const worst = psi[worstRegion];
+  const [, bandName] = band(worst);
+
+  $("maxVal").textContent = worst;
+  $("maxVal").style.color = bandColor(worst);
+  $("maxBand").textContent = bandName;
+  $("maxBand").style.background = bandColor(worst);
+  $("meta").textContent = `${worstRegion[0].toUpperCase() + worstRegion.slice(1)} · reading at ${fmtTime(latest.timestamp)} · checked ${new Date().toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" })}`;
+
+  $("regions").innerHTML = REGIONS.map(r => `
+    <div class="region ${psi[r] >= threshold ? "over" : ""}">
+      <div class="name">${r}</div>
+      <div class="val" style="color:${bandColor(psi[r])}">${psi[r]}</div>
+      <div class="bar" style="background:${bandColor(psi[r])}"></div>
+    </div>`).join("");
+
+  renderChart(items);
+  renderMap(latest);
+  return { latest, psi, worst };
+}
+
+function renderChart(items) {
+  const W = 900, H = 260, L = 40, R = 12, T = 12, B = 28;
+  const all = items.flatMap(i => REGIONS.map(r => i.readings.psi_twenty_four_hourly[r]));
+  const yMax = Math.max(threshold, ...all) * 1.1;
+  const x = i => L + (items.length < 2 ? 0 : (i / (items.length - 1)) * (W - L - R));
+  const y = v => T + (1 - v / yMax) * (H - T - B);
+  const step = yMax > 300 ? 100 : 50;
+
+  let s = "";
+  for (let v = 0; v <= yMax; v += step)
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  items.forEach((it, i) => {
+    if (i % 3 === 0 || i === items.length - 1) {
+      const h = new Date(it.timestamp).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric" });
+      s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${h}</text>`;
+    }
+  });
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
+  s += `<text x="${W - R}" y="${y(threshold) - 5}" text-anchor="end" style="fill:var(--hazard)">Alarm ${threshold}</text>`;
+  REGIONS.forEach(r => {
+    const pts = items.map((it, i) => `${x(i)},${y(it.readings.psi_twenty_four_hourly[r])}`).join(" ");
+    s += `<polyline points="${pts}" fill="none" stroke="${REGION_COLORS[r]}" stroke-width="2" stroke-linejoin="round"/>`;
+  });
+  $("chart").innerHTML = s;
+  $("legend").innerHTML = REGIONS.map(r => `<span><i style="background:${REGION_COLORS[r]}"></i>${r[0].toUpperCase() + r.slice(1)}</span>`).join("");
+}
+
+// ---------- Zone map ----------
+// NEA doesn't publish exact PSI zone boundaries: these split the island around a central block.
+const C = { n: 1.385, s: 1.29, w: 103.775, e: 103.885 };          // central block
+const O = { n: 1.47, s: 1.20, w: 103.59, e: 104.09 };              // outer extent (land + nearby islands)
+const ZONES = {
+  central: [[C.n, C.w], [C.n, C.e], [C.s, C.e], [C.s, C.w]],
+  north:   [[O.n, 103.70], [O.n, 103.93], [C.n, C.e], [C.n, C.w]],
+  east:    [[O.n, 103.93], [O.n, O.e], [O.s, O.e], [O.s, 103.92], [C.s, C.e], [C.n, C.e]],
+  south:   [[C.s, C.w], [C.s, C.e], [O.s, 103.92], [O.s, 103.74]],
+  west:    [[O.n, O.w], [O.n, 103.70], [C.n, C.w], [C.s, C.w], [O.s, 103.74], [O.s, O.w]],
+};
+const LABEL_AT = { north: [1.425, 103.82], south: [1.262, 103.83], east: [1.355, 103.96], west: [1.355, 103.70], central: [1.338, 103.83] };
+const POLLUTANTS = [
+  ["pm25_twenty_four_hourly", "PM2.5 (24-hr)", "µg/m³"],
+  ["pm10_twenty_four_hourly", "PM10 (24-hr)", "µg/m³"],
+  ["o3_eight_hour_max", "O₃ (8-hr max)", "µg/m³"],
+  ["no2_one_hour_max", "NO₂ (1-hr max)", "µg/m³"],
+  ["so2_twenty_four_hourly", "SO₂ (24-hr)", "µg/m³"],
+  ["co_eight_hour_max", "CO (8-hr max)", "mg/m³"],
+];
+let map = null;
+const zoneShapes = {}, zoneLabels = {};
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+function initMap() {
+  $("bandLegend").innerHTML = BANDS.map(([max, name, v], i) =>
+    `<span><i style="background:var(${v})"></i>${name} (${i ? BANDS[i - 1][0] + 1 : 0}${max === Infinity ? "+" : "–" + max})</span>`).join("");
+  if (!window.L) { $("map").textContent = "Map unavailable: could not load the map library (check internet)."; return; }
+
+  map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.25, attributionControl: true });
+  map.fitBounds([[1.235, 103.62], [1.47, 104.04]]);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+
+  REGIONS.forEach(r => {
+    zoneShapes[r] = L.polygon(ZONES[r], { weight: 1.5, color: "#666", fillOpacity: 0.35 }).addTo(map);
+    zoneLabels[r] = L.marker(LABEL_AT[r], { interactive: false, icon: L.divIcon({ className: "zone-label", html: "" }) }).addTo(map);
+  });
+}
+
+function renderMap(latest) {
+  if (!map) return;
+  const rd = latest.readings, psi = rd.psi_twenty_four_hourly;
+  REGIONS.forEach(r => {
+    const v = psi[r], col = bandColor(v), over = v >= threshold;
+    zoneShapes[r].setStyle({ fillColor: col, color: over ? bandColor(301) : col, weight: over ? 4 : 1.5, fillOpacity: over ? 0.55 : 0.35 });
+    zoneShapes[r].bindPopup(`
+      <strong>${cap(r)}</strong>: 24-hr PSI <strong style="color:${col}">${v}</strong> (${band(v)[1]})
+      <table>${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit]) =>
+        `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td></tr>`).join("")}</table>
+      <span style="color:#888">Reading at ${fmtTime(latest.timestamp)}</span>`);
+    zoneLabels[r].setIcon(L.divIcon({
+      className: "zone-label",
+      html: `<div class="${over ? "over" : ""}" style="border-color:${col}">${cap(r)}<b style="color:${col}">${v}</b></div>`,
+    }));
+  });
+}
+
+// ---------- Check loop ----------
+async function check() {
+  try {
+    latestItems = await fetchLive();
+    const { latest, psi, worst } = renderLive(latestItems);
+    log(`24-hr PSI max ${worst} (${band(worst)[1]})`);
+    const over = REGIONS.filter(r => psi[r] >= threshold).sort((a, b) => psi[b] - psi[a]);
+    if (over.length && latest.timestamp !== lastAlarmedReading) {
+      lastAlarmedReading = latest.timestamp;
+      raiseAlarm(`PSI ALERT: ${worst} (${band(worst)[1]})`,
+        ` 24-hr PSI has reached ${threshold}+ in ${over.map(r => `${r[0].toUpperCase() + r.slice(1)} ${psi[r]}`).join(", ")}. Reduce prolonged outdoor activity and consider an N95 mask.`);
+    }
+  } catch (e) {
+    $("meta").textContent = "Could not fetch live readings: " + e.message;
+    log("Live fetch failed: " + e.message);
+  }
+  try {
+    const fc = await fetchForecast();
+    if (fc) {
+      $("forecast").innerHTML = `NEA forecast for ${fc.date}: 24-hr PSI <b>${fc.lower}–${fc.upper}</b> <span class="pill" style="background:${bandColor(fc.upper)}">${band(fc.upper)[1]}</span>`;
+      if (fc.upper >= threshold && fc.date !== lastWarnedForecast) {
+        lastWarnedForecast = fc.date;
+        raiseWarning(`PSI forecast warning for ${fc.date}`, ` NEA forecasts 24-hr PSI of ${fc.lower}–${fc.upper}, which may reach ${threshold}+.`);
+      }
+    } else $("forecast").textContent = "No forecast published.";
+  } catch (e) {
+    $("forecast").textContent = location.protocol === "file:"
+      ? "Forecast unavailable when opened as a file (data.gov.sg blocks it). Open via \"PSI Monitor.bat\" instead."
+      : "Forecast unavailable: " + e.message;
+    log("Forecast fetch failed: " + e.message);
+  }
+}
+
+$("armBtn").onclick = armAlarm;
+$("ackBtn").onclick = ackAlarm;
+$("warnClose").onclick = () => $("warnBanner").classList.remove("show");
+$("refreshBtn").onclick = check;
+$("testBtn").onclick = () => { armAlarm(); raiseAlarm("PSI ALERT (test)", " This is a test of the alarm. Click Acknowledge to stop it."); };
+$("threshold").onchange = e => {
+  const v = Number(e.target.value);
+  if (v > 0) {
+    threshold = v; store.set("psiThreshold", v);
+    lastAlarmedReading = lastWarnedForecast = null; // re-evaluate against the new threshold
+    ackAlarm(); $("warnBanner").classList.remove("show");
+    check();
+  }
+};
+
+initMap();
+check();
+setInterval(check, POLL_MS);
+</script>
+</body>
+</html>
