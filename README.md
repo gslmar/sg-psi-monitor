@@ -28,4 +28,18 @@ Map tiles © OpenStreetMap contributors.
 python psi_monitor.py                  # check every 15 min, alarm at PSI >= 200
 python psi_monitor.py --threshold 150
 python psi_monitor.py --test-alarm
+python psi_monitor.py --test-whatsapp
 ```
+
+### WhatsApp alerts
+
+The script can also send alerts to WhatsApp through [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) (free): a PSI alert for each new hourly reading at or above the threshold, an all-clear when every region drops back below it, and a forecast warning.
+
+1. From the phone that should receive alerts, follow CallMeBot's instructions to get an API key (you message their number once).
+2. Create `psi_alerts.json` next to the script (it's in `.gitignore`, so it's never committed):
+   ```json
+   {"whatsapp": {"phone": "+65XXXXXXXX", "apikey": "your-key"}}
+   ```
+3. Run `python psi_monitor.py --test-whatsapp`, then `python psi_monitor.py`.
+
+Alerts only go out while the script is running.
