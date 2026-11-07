@@ -98,7 +98,15 @@
   /* ---------- Cards ---------- */
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); position: relative; }
   .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1.15fr; margin-bottom: 16px; }
-  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 820px) {
+    /* one column: gauge, then the map, then the region rows */
+    main { display: flex; flex-direction: column; }
+    .grid { display: contents; }
+    .hero { order: 1; margin-bottom: 16px; }
+    .map-card { order: 2; }
+    .region-card { order: 3; }
+    footer { order: 4; }
+  }
   h2 { font-size: 15px; margin: 0 0 12px; letter-spacing: -.005em; }
   .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
   .card-head h2 { margin: 0; }
@@ -168,6 +176,10 @@
   .zone-label b { display: block; font-size: 19px; }
   .zone-label b small { font-size: 10px; font-weight: 600; opacity: .7; }
   .zone-label .pm { display: block; font-size: 10.5px; font-weight: 500; opacity: .8; }
+  #map.compact .zone-label div { padding: 2px 6px; font-size: 10px; border-width: 1.5px; border-radius: 8px; }
+  #map.compact .zone-label b { font-size: 15px; line-height: 1.1; }
+  #map.compact .zone-label .pm { font-size: 9.5px; }
+  #map.compact .zone-label b small { display: none; }
   .zone-label .over { animation: pulse .8s infinite alternate; }
   .haze-ring { animation: breathe 3.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
   .haze-ring.over { animation-duration: 1.2s; }
@@ -632,8 +644,8 @@ function initMap() {
     `<span><i style="background:var(${v})"></i>${name} (${i ? BANDS[i - 1][0] + 1 : 0}${max === Infinity ? "+" : "–" + max})</span>`).join("");
   if (!window.L) { $("map").textContent = "Map unavailable: could not load the map library (check internet)."; return; }
 
-  map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.25, attributionControl: true });
-  map.fitBounds(SG_BOUNDS);
+  map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.1, attributionControl: true });
+  fitMap();
   setTiles();
   REGIONS.forEach(r => {
     zoneHalos[r] = L.circle(LABEL_AT[r], { radius: 3200, stroke: false, fillOpacity: 0.22, className: "haze-ring", interactive: false }).addTo(map);
@@ -641,8 +653,21 @@ function initMap() {
   });
 }
 
+// Wide maps show all of Singapore; narrow (phone) maps zoom in on the five zones so labels don't overlap
+function fitMap() {
+  if (!map) return;
+  map.invalidateSize();
+  const narrow = map.getSize().x < 520;
+  $("map").classList.toggle("compact", narrow);
+  if (!narrow) return map.fitBounds(SG_BOUNDS);
+  const pts = REGIONS.map(r => LABEL_AT[r]);
+  map.fitBounds(L.latLngBounds(pts), { padding: [56, 40] });
+}
+let mapFitted = false;
+
 function renderMap(latest) {
   if (!map) return;
+  if (!mapFitted) { mapFitted = true; setTimeout(fitMap, 0); }
   const rd = latest.readings, psi = rd.psi_twenty_four_hourly;
   REGIONS.forEach(r => {
     const v = psi[r], col = bandColor(v), over = v >= threshold;
@@ -723,7 +748,7 @@ check();
 setInterval(check, POLL_MS);
 setInterval(tickLive, 1000);
 addEventListener("resize", () => {
-  if (map) { map.invalidateSize(); map.fitBounds(SG_BOUNDS); }
+  fitMap();
 });
 </script>
 </body>
