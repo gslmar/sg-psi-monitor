@@ -163,6 +163,8 @@
     border: 2px solid; box-shadow: 0 2px 8px rgba(0,0,0,.25); font-size: 11px; line-height: 1.2; font-weight: 600;
   }
   .zone-label b { display: block; font-size: 19px; }
+  .zone-label b small { font-size: 10px; font-weight: 600; opacity: .7; }
+  .zone-label .pm { display: block; font-size: 10.5px; font-weight: 500; opacity: .8; }
   .zone-label .over { animation: pulse .8s infinite alternate; }
   .haze-ring { animation: breathe 3.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
   .haze-ring.over { animation-duration: 1.2s; }
@@ -209,8 +211,6 @@
   .si { display: flex; align-items: center; gap: 6px; min-width: 70px; font-variant-numeric: tabular-nums; }
   .si .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; min-width: 24px; }
   .si .bar i { display: block; height: 100%; border-radius: 3px; }
-  .si.main b { text-decoration: underline; text-underline-offset: 3px; }
-  .main-tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); white-space: nowrap; }
   .drivers-wrap { overflow-x: auto; }
   .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
@@ -296,7 +296,7 @@
   </div>
 
   <section class="card" style="margin-bottom:16px" id="driversCard" hidden>
-    <div class="card-head"><h2>What's driving the PSI</h2><span class="sub">Sub-index per pollutant · the highest one sets the region's PSI</span></div>
+    <div class="card-head"><h2>PSI and PM2.5 by region</h2><span class="sub">24-hr PSI · PM2.5 1-hr and 24-hr</span></div>
     <div class="drivers-wrap" id="drivers"></div>
     <div class="note" id="driversNote"></div>
   </section>
@@ -304,7 +304,7 @@
   <section class="card map-card">
     <div class="card-head">
       <h2>Haze map by zone</h2>
-      <span class="sub">Click a zone for pollutant details</span>
+      <span class="sub">24-hr PSI and 1-hr PM2.5 per zone · click a zone for details</span>
     </div>
     <div id="map" role="img" aria-label="Map of Singapore's five PSI zones coloured by current 24-hr PSI"></div>
     <div class="band-legend" id="bandLegend"></div>
@@ -352,29 +352,14 @@ const GAUGE_MAX = 400;
 // NEA 1-hr PM2.5 bands
 const PM_BANDS = [[55, "Normal", "--good"], [150, "Elevated", "--unhealthy"], [250, "High", "--very"], [Infinity, "Very high", "--hazard"]];
 const pmBand = v => PM_BANDS.find(b => v <= b[0]);
-// Sub-indices in the PSI API (the region's PSI is the highest of these)
-const SUBS = [
-  ["pm25_sub_index", "PM2.5"], ["pm10_sub_index", "PM10"], ["o3_sub_index", "O₃"], ["co_sub_index", "CO"], ["so2_sub_index", "SO₂"],
-];
-// Everything the chart can show; options only appear if the API returned them
+// Readings the chart can show; options only appear if the API returned them
 const METRICS = [
   { key: "psi_twenty_four_hourly", name: "24-hr PSI", unit: "", scale: "psi" },
   { key: "pm25_one_hourly", name: "PM2.5 1-hr", unit: "µg/m³", scale: "pm" },
-  ...SUBS.map(([key, n]) => ({ key, name: `${n} sub-index`, unit: "", scale: "psi" })),
   { key: "pm25_twenty_four_hourly", name: "PM2.5 24-hr", unit: "µg/m³" },
-  { key: "pm10_twenty_four_hourly", name: "PM10 24-hr", unit: "µg/m³" },
-  { key: "o3_eight_hour_max", name: "O₃ 8-hr max", unit: "µg/m³" },
-  { key: "no2_one_hour_max", name: "NO₂ 1-hr max", unit: "µg/m³" },
-  { key: "so2_twenty_four_hourly", name: "SO₂ 24-hr", unit: "µg/m³" },
-  { key: "co_eight_hour_max", name: "CO 8-hr max", unit: "mg/m³" },
 ];
 const num = v => (v == null || v === "" || !Number.isFinite(+v) ? null : +v);
 const val = (it, key, r) => num(it.readings?.[key]?.[r]);
-function dominant(rd, r) {
-  let best = null;
-  SUBS.forEach(([k, n]) => { const v = num(rd[k]?.[r]); if (v != null && (!best || v > best.v)) best = { k, n, v }; });
-  return best;
-}
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = id => document.getElementById(id);
@@ -665,8 +650,7 @@ function renderLive(items, animate = true) {
   $("maxBand").textContent = bandName;
   $("maxBand").className = "pill " + inkOn(worst);
   $("maxBand").style.background = bandColor(worst);
-  const dom = dominant(latest.readings, worstRegion);
-  $("meta").textContent = `Worst: ${cap(worstRegion)}${dom ? ` · main pollutant ${dom.n}` : ""} · reading at ${fmtTime(latest.timestamp)}`;
+  $("meta").textContent = `Worst: ${cap(worstRegion)} · reading at ${fmtTime(latest.timestamp)}`;
   $("advice").hidden = false; $("adviceText").textContent = ADVICE[bandName];
   haze.level = Math.min(1, worst / 300);
   if (reduceMotion) drawHaze(0, 0);
@@ -697,34 +681,30 @@ function renderLive(items, animate = true) {
 }
 
 function extraLine(rd, r) {
-  const dom = dominant(rd, r), pm = num(rd.pm25_one_hourly?.[r]);
+  const p1 = num(rd.pm25_one_hourly?.[r]), p24 = num(rd.pm25_twenty_four_hourly?.[r]);
   const parts = [];
-  if (dom) parts.push(`Main <b>${dom.n}</b>`);
-  if (pm != null) parts.push(`PM2.5 1-hr <b>${pm}</b>`);
-  return parts.length ? `<div class="extra">${parts.join(" · ")}</div>` : "";
+  if (p1 != null) parts.push(`PM2.5 1-hr <b>${p1}</b>`);
+  if (p24 != null) parts.push(`24-hr <b>${p24}</b>`);
+  return parts.length ? `<div class="extra">${parts.join(" · ")} µg/m³</div>` : "";
 }
 
 function renderDrivers(latest) {
-  const rd = latest.readings, subs = SUBS.filter(([k]) => rd[k]);
-  const hasPm = !!rd.pm25_one_hourly;
-  $("driversCard").hidden = !subs.length && !hasPm;
-  if ($("driversCard").hidden) return;
-  const scaleMax = Math.max(100, ...REGIONS.flatMap(r => subs.map(([k]) => num(rd[k][r]) || 0)));
-  $("drivers").innerHTML = `<table class="drivers"><thead><tr><th>Region</th><th>PSI</th>${subs.map(([, n]) => `<th>${n}</th>`).join("")}${hasPm ? "<th>PM2.5 1-hr</th>" : ""}</tr></thead><tbody>` +
+  const rd = latest.readings, has1 = !!rd.pm25_one_hourly, has24 = !!rd.pm25_twenty_four_hourly;
+  $("driversCard").hidden = false;
+  const psiMax = Math.max(100, ...REGIONS.map(r => num(rd.psi_twenty_four_hourly?.[r]) || 0));
+  const pmMax = Math.max(60, ...REGIONS.flatMap(r => [num(rd.pm25_one_hourly?.[r]) || 0, num(rd.pm25_twenty_four_hourly?.[r]) || 0]));
+  const bar = (v, max, color) => `<span class="bar"><i style="width:${Math.max(3, v / max * 100)}%;background:${color}"></i></span>`;
+  const dot = c => `<i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${c}"></i>`;
+  $("drivers").innerHTML = `<table class="drivers"><thead><tr><th>Region</th><th>24-hr PSI</th>${has1 ? "<th>PM2.5 1-hr (µg/m³)</th>" : ""}${has24 ? "<th>PM2.5 24-hr (µg/m³)</th>" : ""}</tr></thead><tbody>` +
     REGIONS.map(r => {
-      const dom = dominant(rd, r), psi = num(rd.psi_twenty_four_hourly?.[r]);
-      const pm = hasPm ? num(rd.pm25_one_hourly[r]) : null;
-      return `<tr style="--rc:${RC(r)}"><td>${r}</td>
-        <td><b>${psi ?? "–"}</b>${dom ? ` <span class="main-tag" title="Pollutant setting the PSI">${dom.n}</span>` : ""}</td>` +
-        subs.map(([k, n]) => {
-          const v = num(rd[k][r]);
-          if (v == null) return "<td>–</td>";
-          return `<td><div class="si ${dom?.k === k ? "main" : ""}" title="${n} sub-index ${v} (${band(v)[1]})"><b>${v}</b><span class="bar"><i style="width:${Math.max(3, v / scaleMax * 100)}%;background:${bandColor(v)}"></i></span></div></td>`;
-        }).join("") +
-        (hasPm ? `<td>${pm == null ? "–" : `<span class="bandtag" style="display:inline-flex;align-items:center;gap:5px"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:var(${pmBand(pm)[2]})"></i><b>${pm}</b> ${pmBand(pm)[1]}</span>`}</td>` : "") +
+      const psi = num(rd.psi_twenty_four_hourly?.[r]), p1 = num(rd.pm25_one_hourly?.[r]), p24 = num(rd.pm25_twenty_four_hourly?.[r]);
+      return `<tr style="--rc:${RC(r)}"><td>${r}</td>` +
+        `<td>${psi == null ? "–" : `<div class="si" title="24-hr PSI ${psi} (${band(psi)[1]})"><b>${psi}</b>${bar(psi, psiMax, bandColor(psi))}<span class="bandtag">${band(psi)[1]}</span></div>`}</td>` +
+        (has1 ? `<td>${p1 == null ? "–" : `<div class="si" title="PM2.5 1-hr ${p1} µg/m³ (${pmBand(p1)[1]})"><b>${p1}</b>${bar(p1, pmMax, `var(${pmBand(p1)[2]})`)}<span class="bandtag">${pmBand(p1)[1]}</span></div>`}</td>` : "") +
+        (has24 ? `<td>${p24 == null ? "–" : `<div class="si"><b>${p24}</b>${bar(p24, pmMax, "var(--muted)")}</div>`}</td>` : "") +
         `</tr>`;
     }).join("") + `</tbody></table>`;
-  $("driversNote").textContent = `Bars are coloured by PSI band.${hasPm ? " PM2.5 1-hr bands (µg/m³): Normal 0–55, Elevated 56–150, High 151–250, Very high 251+." : ""} Reading at ${fmtTime(latest.timestamp)}.`;
+  $("driversNote").textContent = `PSI bands: Good 0–50, Moderate 51–100, Unhealthy 101–200, Very unhealthy 201–300, Hazardous 301+.${has1 ? " PM2.5 1-hr bands (µg/m³): Normal 0–55, Elevated 56–150, High 151–250, Very high 251+." : ""} Reading at ${fmtTime(latest.timestamp)}.`;
 }
 
 function fillMetricSelect(latest) {
@@ -845,14 +825,6 @@ $("viewTable").onclick = () => setView(true);
 // ---------- Zone map ----------
 // Fallback label points; replaced by the API's regionMetadata on each fetch
 const LABEL_AT = { north: [1.41803, 103.82], south: [1.29587, 103.82], east: [1.35735, 103.94], west: [1.35735, 103.70], central: [1.35735, 103.82] };
-const POLLUTANTS = [
-  ["pm25_twenty_four_hourly", "PM2.5 (24-hr)", "µg/m³", "pm25_sub_index"],
-  ["pm10_twenty_four_hourly", "PM10 (24-hr)", "µg/m³", "pm10_sub_index"],
-  ["o3_eight_hour_max", "O₃ (8-hr max)", "µg/m³", "o3_sub_index"],
-  ["no2_one_hour_max", "NO₂ (1-hr max)", "µg/m³"],
-  ["so2_twenty_four_hourly", "SO₂ (24-hr)", "µg/m³", "so2_sub_index"],
-  ["co_eight_hour_max", "CO (8-hr max)", "mg/m³", "co_sub_index"],
-];
 let map = null, tiles = null;
 // CARTO Basemaps key (a browser key: it is sent with every tile request, so it is visible to visitors by design)
 const CARTO_KEY = "cb1_5445_1_3b5abf1a8552a4b5640487c1";
@@ -895,17 +867,14 @@ function renderMap(latest) {
     zoneHalos[r].getElement()?.classList.toggle("over", over);
     zoneLabels[r].bindPopup(`
       <strong>${cap(r)}</strong>: 24-hr PSI <strong>${v}</strong> <span class="pill ${inkOn(v)}" style="background:${col};padding:1px 8px;font-size:11px">${band(v)[1]}</span>
-      ${(() => { const dom = dominant(rd, r); return dom ? `<div style="margin-top:4px">Main pollutant: <b>${dom.n}</b></div>` : ""; })()}
-      <table><tr><td style="opacity:.7">Pollutant</td><td style="opacity:.7;font-weight:400">Level</td><td style="opacity:.7;font-weight:400;text-align:right">Sub-index</td></tr>
-      ${num(rd.pm25_one_hourly?.[r]) != null ? `<tr><td>PM2.5 (1-hr)</td><td>${rd.pm25_one_hourly[r]} µg/m³ <span style="font-weight:400;opacity:.75">${pmBand(+rd.pm25_one_hourly[r])[1]}</span></td><td style="text-align:right">–</td></tr>` : ""}
-      ${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit, sub]) => {
-        const si = sub ? num(rd[sub]?.[r]) : null;
-        return `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td><td style="text-align:right">${si == null ? "–" : `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${bandColor(si)};margin-right:4px"></span>${si}`}</td></tr>`;
-      }).join("")}</table>
+      <table>
+      ${num(rd.pm25_one_hourly?.[r]) != null ? `<tr><td>PM2.5 1-hr</td><td>${rd.pm25_one_hourly[r]} µg/m³ <span style="font-weight:400;opacity:.75">${pmBand(+rd.pm25_one_hourly[r])[1]}</span></td></tr>` : ""}
+      ${num(rd.pm25_twenty_four_hourly?.[r]) != null ? `<tr><td>PM2.5 24-hr</td><td>${rd.pm25_twenty_four_hourly[r]} µg/m³</td></tr>` : ""}
+      </table>
       <span style="opacity:.7">Reading at ${fmtTime(latest.timestamp)}</span>`);
     zoneLabels[r].setIcon(L.divIcon({
       className: "zone-label",
-      html: `<div class="${over ? "over" : ""}" style="border-color:${over ? bandColor(301) : col}">${cap(r)}<b>${v}</b></div>`,
+      html: `<div class="${over ? "over" : ""}" style="border-color:${over ? bandColor(301) : col}">${cap(r)}<b>${v}<small> PSI</small></b>${num(rd.pm25_one_hourly?.[r]) != null ? `<span class="pm">PM2.5 1h ${rd.pm25_one_hourly[r]}</span>` : ""}</div>`,
     }));
   });
 }
