@@ -8,7 +8,6 @@ Live haze monitor for Singapore that sounds an alarm when the 24-hr PSI reaches 
 - Live status badge with countdown to the next refresh (every 5 minutes)
 - Region cards with change since the last hour and a 24-hr sparkline
 - Haze map showing each zone's 24-hr PSI and 1-hr PM2.5, with a glowing ring coloured and sized by PSI; click a zone for details
-- Interactive 24-hour trend chart for PSI, 1-hr PM2.5 or 24-hr PM2.5 (hover for values) and NEA's daily PSI forecast
 - Light and dark themes (follows your system, or pick one with the theme button)
 - iPhone-style alarm, flashing banner and desktop notification when any region crosses the threshold
 
@@ -20,9 +19,9 @@ From [data.gov.sg](https://data.gov.sg) (no API key needed):
 
 - Live readings: `https://api-open.data.gov.sg/v2/real-time/api/psi` (PSI, 24-hr PM2.5, zone positions)
 - 1-hr PM2.5: `https://api-open.data.gov.sg/v2/real-time/api/pm25`
-- Daily forecast: dataset `d_c2c7fa70f297cdaee13afbe53a900eb9`
+- Daily forecast (command-line script only): dataset `d_c2c7fa70f297cdaee13afbe53a900eb9`
 
-Map tiles © OpenStreetMap contributors.
+Map tiles © OpenStreetMap contributors © CARTO.
 
 ## Command-line version
 

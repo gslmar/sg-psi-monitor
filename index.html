@@ -18,7 +18,7 @@
     --good: #16a35a; --moderate: #2a78d6; --unhealthy: #e9a400; --very: #ec6a2c; --hazard: #d03b3b;
     /* Region identity colours (validated categorical order) */
     --r-north: #2a78d6; --r-south: #eb6834; --r-east: #1baf7a; --r-west: #eda100; --r-central: #e87ba4;
-    --alarm-bg: #d03b3b; --alarm-text: #fff; --warn-bg: #fff4d6; --warn-text: #6b4b00; --warn-border: #f0d68a;
+    --alarm-bg: #d03b3b; --alarm-text: #fff;
     --haze: 150,135,110;
   }
   @media (prefers-color-scheme: dark) {
@@ -29,7 +29,6 @@
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
       --accent: #3987e5;
       --r-north: #3987e5; --r-south: #d95926; --r-east: #199e70; --r-west: #c98500; --r-central: #d55181;
-      --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17;
       --haze: 190,170,140;
     }
   }
@@ -40,7 +39,6 @@
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
     --accent: #3987e5;
     --r-north: #3987e5; --r-south: #d95926; --r-east: #199e70; --r-west: #c98500; --r-central: #d55181;
-    --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17;
     --haze: 190,170,140;
   }
   * { box-sizing: border-box; }
@@ -93,7 +91,6 @@
   .banner { display: none; border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .banner.show { display: flex; }
   .banner.alarm { background: var(--alarm-bg); color: var(--alarm-text); animation: pulse 1s infinite alternate; }
-  .banner.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
   .banner strong { font-size: 17px; display: block; }
   .banner button { background: #fff; color: #111; border: none; font-weight: 600; }
   @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.22); } }
@@ -150,14 +147,6 @@
   .region svg { display: block; width: 100%; height: 30px; margin-top: 4px; }
   .region.over { border-color: var(--hazard); box-shadow: inset 0 0 0 1px var(--hazard); }
 
-  .forecast { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--border); font-size: 14px;
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
-  .forecast b { font-variant-numeric: tabular-nums; }
-  .fc-range { position: relative; height: 8px; flex: 1 1 100%; border-radius: 4px; overflow: hidden; margin-top: 2px;
-    background: linear-gradient(90deg, var(--good) 0 12.5%, var(--moderate) 12.5% 25%, var(--unhealthy) 25% 50%, var(--very) 50% 75%, var(--hazard) 75%); opacity: .35; }
-  .fc-mark { position: absolute; top: -3px; height: 14px; border-radius: 4px; border: 2px solid var(--text); background: transparent; }
-  .fc-wrap { position: relative; flex: 1 1 100%; }
-
   /* Map */
   .map-card { margin-bottom: 16px; }
   #map { height: 420px; border-radius: 12px; border: 1px solid var(--border); background: var(--card-2); }
@@ -184,28 +173,9 @@
   .leaflet-popup-content td { padding: 1px 10px 1px 0; }
   .leaflet-popup-content td + td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
-  /* Chart */
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
-  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
-  .chart-wrap { position: relative; overflow: hidden; }
-  #chart { width: 100%; height: auto; display: block; touch-action: pan-y; }
-  #chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-  #chart .dl { fill: var(--text); font-size: 11.5px; font-weight: 600; }
-  #chart .series { transition: opacity .2s; }
-  #chart.dim .series:not(.hi) { opacity: .2; }
-  .tip { position: absolute; pointer-events: none; background: var(--card); color: var(--text); border: 1px solid var(--border);
-    border-radius: 10px; padding: 8px 10px; font-size: 12.5px; box-shadow: var(--shadow); min-width: 150px; opacity: 0; visibility: hidden; left: 0; top: 0; transition: opacity .12s; z-index: 5; }
-  .tip.show { opacity: 1; visibility: visible; }
-  .tip .t { color: var(--muted); margin-bottom: 4px; }
-  .tip .row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-  .tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; text-transform: capitalize; }
-  .tip .row i { width: 10px; height: 3px; border-radius: 2px; }
-  .tip .row b { font-variant-numeric: tabular-nums; }
   .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .region .extra b { color: var(--text); font-weight: 600; }
-  select { font: inherit; font-size: 12.5px; border-radius: 9px; border: 1px solid var(--border); background: var(--card-2); color: var(--text); padding: 5px 8px; }
-  .head-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  details.logbox { margin-top: 14px; }
+  .logcard { padding: 12px 18px; }
   details.logbox summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
   .log { margin-top: 8px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
   footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--muted); }
@@ -250,11 +220,6 @@
     <div><strong id="alarmTitle"></strong><span id="alarmMsg"></span></div>
     <button id="ackBtn">Acknowledge</button>
   </div>
-  <div id="warnBanner" class="banner warn" role="status">
-    <div><strong id="warnTitle"></strong><span id="warnMsg"></span></div>
-    <button id="warnClose">Dismiss</button>
-  </div>
-
   <div class="grid">
     <section class="card hero" id="hero">
       <canvas id="haze" aria-hidden="true"></canvas>
@@ -285,7 +250,6 @@
     <section class="card">
       <div class="card-head"><h2>By region</h2><span class="sub">change vs 1 hr ago · 24-hr trend</span></div>
       <div class="regions" id="regions"></div>
-      <div class="forecast" id="forecast">Forecast: loading…</div>
     </section>
   </div>
 
@@ -298,19 +262,7 @@
     <div class="band-legend" id="bandLegend"></div>
   </section>
 
-  <section class="card">
-    <div class="card-head">
-      <h2>Last 24 hours</h2>
-      <div class="head-ctl">
-      <label for="metric" style="color:var(--muted)">Show</label>
-      <select id="metric" aria-label="Reading to chart"></select>
-      </div>
-    </div>
-    <div class="legend" id="legend"></div>
-    <div class="chart-wrap" id="chartWrap">
-      <svg id="chart" viewBox="0 0 900 280" role="img" aria-label="24-hour PSI trend by region"></svg>
-      <div class="tip" id="tip"></div>
-    </div>
+  <section class="card logcard">
     <details class="logbox"><summary>Activity log</summary><div class="log" id="log"></div></details>
   </section>
 
@@ -320,7 +272,6 @@
 <script>
 const REALTIME_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi";
 const PM25_URL = "https://api-open.data.gov.sg/v2/real-time/api/pm25";
-const FORECAST_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=d_c2c7fa70f297cdaee13afbe53a900eb9";
 const POLL_MS = 5 * 60 * 1000;
 const REGIONS = ["north", "south", "east", "west", "central"];
 const RC = r => `var(--r-${r})`;
@@ -336,14 +287,7 @@ const GAUGE_MAX = 400;
 // NEA 1-hr PM2.5 bands
 const PM_BANDS = [[55, "Normal", "--good"], [150, "Elevated", "--unhealthy"], [250, "High", "--very"], [Infinity, "Very high", "--hazard"]];
 const pmBand = v => PM_BANDS.find(b => v <= b[0]);
-// Readings the chart can show; options only appear if the API returned them
-const METRICS = [
-  { key: "psi_twenty_four_hourly", name: "24-hr PSI", unit: "", scale: "psi" },
-  { key: "pm25_one_hourly", name: "PM2.5 1-hr", unit: "µg/m³", scale: "pm" },
-  { key: "pm25_twenty_four_hourly", name: "PM2.5 24-hr", unit: "µg/m³" },
-];
 const num = v => (v == null || v === "" || !Number.isFinite(+v) ? null : +v);
-const val = (it, key, r) => num(it.readings?.[key]?.[r]);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = id => document.getElementById(id);
@@ -354,9 +298,8 @@ const store = {
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
 let threshold = Number(store.get("psiThreshold")) || 200;
-let metricKey = store.get("psiMetric") || "psi_twenty_four_hourly";
 $("threshold").value = threshold;
-let lastAlarmedReading = null, lastWarnedForecast = null;
+let lastAlarmedReading = null;
 let latestItems = [], nextCheckAt = Date.now(), lastSuccess = 0;
 
 function band(psi) { return BANDS.find(b => psi <= b[0]); }
@@ -422,17 +365,6 @@ function updateArmStatus() {
   $("armBtn").textContent = sound ? "Armed ✓" : "Arm alarm";
   $("armBtn").classList.toggle("armed", !!sound);
 }
-function tone(freqFrom, freqTo, dur, when) {
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = "square";
-  o.frequency.setValueAtTime(freqFrom, when);
-  o.frequency.linearRampToValueAtTime(freqTo, when + dur);
-  g.gain.setValueAtTime(0.0001, when);
-  g.gain.exponentialRampToValueAtTime(0.25, when + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-  o.connect(g).connect(audioCtx.destination);
-  o.start(when); o.stop(when + dur + 0.05);
-}
 // Bright bell-like ping (sine + soft overtone, fast decay), the building block of the iPhone "Radar" sound
 function ping(freq, when, dur = 0.12, vol = 0.35) {
   [[1, vol], [2.76, vol * 0.25]].forEach(([mult, v]) => {
@@ -457,10 +389,6 @@ function startSiren() {
   cycle(); sirenTimer = setInterval(cycle, 1500);
 }
 function stopSiren() { clearInterval(sirenTimer); sirenTimer = null; }
-function chime() {
-  if (!audioCtx) return;
-  const t = audioCtx.currentTime; tone(880, 880, 0.25, t); tone(660, 660, 0.35, t + 0.3);
-}
 function notify(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
     try { new Notification(title, { body, requireInteraction: true }); } catch {}
@@ -477,13 +405,6 @@ function ackAlarm() {
   stopSiren(); $("alarmBanner").classList.remove("show");
   document.title = "Singapore PSI Monitor";
 }
-function raiseWarning(title, msg) {
-  $("warnTitle").textContent = title; $("warnMsg").textContent = msg;
-  $("warnBanner").classList.add("show");
-  chime(); notify(title, msg);
-  log("WARNING: " + title);
-}
-
 // ---------- Data ----------
 async function getJson(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -525,17 +446,6 @@ async function mergePm25(items) {
     if (!Object.keys(byHour).length) log("PM2.5 1-hr: no readings returned");
   } catch (e) { log("PM2.5 1-hr fetch failed: " + e.message); }
 }
-async function fetchForecast() {
-  const j = await getJson(FORECAST_URL);
-  const recs = j.result?.records || [];
-  if (!recs.length) return null;
-  const r = recs.reduce((a, b) => (a.forecast_date > b.forecast_date ? a : b));
-  // data.gov.sg has used both *_band and *_bound field names
-  const lower = +(r.forecast_lower_bound ?? r.forecast_lower_band), upper = +(r.forecast_upper_bound ?? r.forecast_upper_band);
-  if (!Number.isFinite(lower) || !Number.isFinite(upper)) throw new Error("unrecognised forecast format");
-  return { date: r.forecast_date, lower, upper };
-}
-
 // ---------- Gauge ----------
 const GX = 170, GY = 170, GR = 135, GW = 20;
 const angleFor = v => Math.PI * (1 - Math.min(v, GAUGE_MAX) / GAUGE_MAX); // radians, 180°→0°
@@ -657,8 +567,6 @@ function renderLive(items, animate = true) {
     </div>`;
   }).join("");
 
-  fillMetricSelect(latest);
-  renderChart(items);
   renderMap(latest);
   return { latest, psi, worst };
 }
@@ -698,108 +606,6 @@ function extraLine(rd, r) {
   if (p1 != null) parts.push(`PM2.5 1-hr <b>${p1}</b>`);
   if (p24 != null) parts.push(`24-hr <b>${p24}</b>`);
   return parts.length ? `<div class="extra">${parts.join(" · ")} µg/m³</div>` : "";
-}
-
-function fillMetricSelect(latest) {
-  const avail = METRICS.filter(m => latest.readings[m.key]);
-  if (!avail.some(m => m.key === metricKey)) metricKey = "psi_twenty_four_hourly";
-  const html = avail.map(m => `<option value="${m.key}" ${m.key === metricKey ? "selected" : ""}>${m.name}${m.unit ? ` (${m.unit})` : ""}</option>`).join("");
-  if ($("metric").innerHTML !== html) $("metric").innerHTML = html;
-}
-$("metric").onchange = e => {
-  metricKey = e.target.value; store.set("psiMetric", metricKey);
-  if (latestItems.length) renderChart(latestItems);
-};
-const curMetric = () => METRICS.find(m => m.key === metricKey) || METRICS[0];
-
-let chartGeom = null;
-function renderChart(items) {
-  const W = Math.max(320, Math.round($("chartWrap").clientWidth || 900)), H = W < 600 ? 240 : 280, L = 36, R = 78, T = 14, B = 28;
-  $("chart").setAttribute("viewBox", `0 0 ${W} ${H}`);
-  const every = Math.max(1, Math.ceil(items.length / Math.floor((W - L - R) / 48)));
-  const M = curMetric(), isPsi = M.key === "psi_twenty_four_hourly";
-  const all = items.flatMap(i => REGIONS.map(r => val(i, M.key, r))).filter(v => v != null);
-  const yMax = Math.max(isPsi ? threshold : 0, ...all, M.unit === "mg/m³" ? 1 : 10) * 1.12;
-  const x = i => L + (items.length < 2 ? 0 : (i / (items.length - 1)) * (W - L - R));
-  const y = v => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
-  const nice = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200];
-  const step = nice.find(n => yMax / n <= 6) || 500;
-  const fmtN = v => +v.toFixed(2);
-
-  let s = "";
-  // faint PSI band zones behind the data
-  let lo = 0;
-  const zones = M.scale === "psi" ? BANDS : M.scale === "pm" ? PM_BANDS : [];
-  zones.forEach(([max, , v]) => {
-    const top = Math.min(max, yMax);
-    if (lo < yMax) s += `<rect x="${L}" width="${W - L - R}" y="${y(top)}" height="${y(lo) - y(top)}" fill="var(${v})" opacity=".06"/>`;
-    lo = max;
-  });
-  for (let v = 0; v <= yMax; v += step)
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmtN(v)}</text>`;
-  s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--axis)"/>`;
-  if (M.unit) s += `<text x="${L - 8}" y="${T - 2}" text-anchor="end" style="font-size:10px">${M.unit}</text>`;
-  items.forEach((it, i) => {
-    if ((items.length - 1 - i) % every === 0)
-      s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${fmtHour(it.timestamp)}</text>`;
-  });
-  if (isPsi) {
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
-    s += `<text x="${L + 6}" y="${y(threshold) - 6}" style="fill:var(--hazard);font-weight:600">Alarm ${threshold}</text>`;
-  }
-
-  REGIONS.forEach(r => {
-    let d = "", pen = false; // break the line where a reading is missing
-    items.forEach((it, i) => { const v = val(it, M.key, r); if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`; pen = true; });
-    s += `<path class="series" data-r="${r}" d="${d}" fill="none" stroke="${RC(r)}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
-  });
-  // direct labels at line ends, nudged apart so they never collide
-  const li = items.length - 1;
-  const ends = REGIONS.map(r => ({ r, v: val(items[li], M.key, r) })).filter(e => e.v != null).map(e => ({ ...e, yy: y(e.v) })).sort((a, b) => a.yy - b.yy);
-  for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 13) ends[i].yy = ends[i - 1].yy + 13;
-  ends.forEach(e => {
-    const ex = x(items.length - 1);
-    s += `<circle class="series" data-r="${e.r}" cx="${ex}" cy="${y(e.v)}" r="4" fill="${RC(e.r)}" stroke="var(--card)" stroke-width="2"/>`;
-    s += `<text class="dl" x="${ex + 10}" y="${e.yy + 4}">${cap(e.r)} ${e.v}</text>`;
-  });
-  s += `<g id="cross" style="display:none"><line id="crossLine" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 3"/><g id="crossDots"></g></g>`;
-  s += `<rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>`;
-  $("chart").innerHTML = s;
-  if (!all.length) s += `<text x="${(L + W - R) / 2}" y="${(T + H - B) / 2}" text-anchor="middle">No ${M.name} readings in the last 24 hours</text>`;
-  $("chart").setAttribute("aria-label", `24-hour ${M.name} trend by region`);
-  chartGeom = { items, x, y, L, R, W, M };
-  $("legend").innerHTML = REGIONS.map(r => `<span data-r="${r}"><i style="background:${RC(r)}"></i>${cap(r)}</span>`).join("");
-  wireChartHover();
-}
-
-function wireChartHover() {
-  const svg = $("chart"), hit = $("hit"), tip = $("tip");
-  const move = ev => {
-    const { items, x, y, L, R, W } = chartGeom;
-    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
-    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    const i = Math.max(0, Math.min(items.length - 1, Math.round(((p.x - L) / (W - L - R)) * (items.length - 1))));
-    const it = items[i], xi = x(i), M = chartGeom.M;
-    const psi = Object.fromEntries(REGIONS.map(r => [r, val(it, M.key, r)]));
-    const rs = REGIONS.filter(r => psi[r] != null);
-    $("cross").style.display = "";
-    $("crossLine").setAttribute("x1", xi); $("crossLine").setAttribute("x2", xi);
-    $("crossDots").innerHTML = rs.map(r => `<circle cx="${xi}" cy="${y(psi[r])}" r="4.5" fill="${RC(r)}" stroke="var(--card)" stroke-width="2"/>`).join("");
-    tip.innerHTML = `<div class="t">${fmtTime(it.timestamp)} · ${M.name}</div>` + (rs.length ? [...rs].sort((a, b) => psi[b] - psi[a])
-      .map(r => `<div class="row"><span><i style="background:${RC(r)}"></i>${r}</span><b>${psi[r]}${M.unit ? ` <span style="font-weight:400;color:var(--muted)">${M.unit}</span>` : ""}</b></div>`).join("") : "No reading");
-    tip.classList.add("show");
-    const wrap = $("chartWrap").getBoundingClientRect(), sx = wrap.width / W;
-    let left = xi * sx + 14; if (left + tip.offsetWidth > wrap.width) left = xi * sx - tip.offsetWidth - 14;
-    tip.style.left = left + "px"; tip.style.top = "6px";
-  };
-  const leave = () => { $("cross").style.display = "none"; tip.classList.remove("show"); };
-  hit.addEventListener("pointermove", move);
-  hit.addEventListener("pointerdown", move);
-  hit.addEventListener("pointerleave", leave);
-  document.querySelectorAll("#legend span").forEach(el => {
-    el.onmouseenter = () => { svg.classList.add("dim"); svg.querySelectorAll(`.series[data-r="${el.dataset.r}"]`).forEach(n => n.classList.add("hi")); };
-    el.onmouseleave = () => { svg.classList.remove("dim"); svg.querySelectorAll(".series.hi").forEach(n => n.classList.remove("hi")); };
-  });
 }
 
 // ---------- Zone map ----------
@@ -891,39 +697,20 @@ async function check() {
     $("meta").textContent = "Could not fetch live readings: " + e.message;
     log("Live fetch failed: " + e.message);
   }
-  try {
-    const fc = await fetchForecast();
-    if (fc) {
-      const pos = v => Math.min(100, v <= 50 ? v / 50 * 12.5 : v <= 100 ? 12.5 + (v - 50) / 50 * 12.5 : v <= 300 ? 25 + (v - 100) / 200 * 50 : 75 + (v - 300) / 200 * 25);
-      $("forecast").innerHTML = `<span>NEA forecast for ${fc.date}: 24-hr PSI <b>${fc.lower}–${fc.upper}</b></span>
-        <span class="pill ${inkOn(fc.upper)}" style="background:${bandColor(fc.upper)}">${band(fc.upper)[1]}</span>
-        <div class="fc-wrap"><div class="fc-range"></div><div class="fc-mark" style="left:${pos(fc.lower)}%;width:max(6px,${pos(fc.upper) - pos(fc.lower)}%)"></div></div>`;
-      if (fc.upper >= threshold && fc.date !== lastWarnedForecast) {
-        lastWarnedForecast = fc.date;
-        raiseWarning(`PSI forecast warning for ${fc.date}`, ` NEA forecasts 24-hr PSI of ${fc.lower}–${fc.upper}, which may reach ${threshold}+.`);
-      }
-    } else $("forecast").textContent = "No forecast published.";
-  } catch (e) {
-    $("forecast").textContent = location.protocol === "file:"
-      ? "Forecast unavailable when opened as a file (data.gov.sg blocks it). Open via \"PSI Monitor.bat\" instead."
-      : "Forecast unavailable: " + e.message;
-    log("Forecast fetch failed: " + e.message);
-  }
   $("refreshBtn").disabled = false;
   tickLive();
 }
 
 $("armBtn").onclick = armAlarm;
 $("ackBtn").onclick = ackAlarm;
-$("warnClose").onclick = () => $("warnBanner").classList.remove("show");
 $("refreshBtn").onclick = check;
 $("testBtn").onclick = () => { armAlarm(); raiseAlarm("PSI ALERT (test)", " This is a test of the alarm. Click Acknowledge to stop it."); };
 $("threshold").onchange = e => {
   const v = Number(e.target.value);
   if (v > 0) {
     threshold = v; store.set("psiThreshold", v);
-    lastAlarmedReading = lastWarnedForecast = null; // re-evaluate against the new threshold
-    ackAlarm(); $("warnBanner").classList.remove("show");
+    lastAlarmedReading = null; // re-evaluate against the new threshold
+    ackAlarm();
     check();
   }
 };
@@ -936,10 +723,7 @@ initHaze();
 check();
 setInterval(check, POLL_MS);
 setInterval(tickLive, 1000);
-let lastW = 0;
 addEventListener("resize", () => {
-  const w = $("chartWrap").clientWidth;
-  if (latestItems.length && Math.abs(w - lastW) > 20) { lastW = w; renderChart(latestItems); }
   if (map) { map.invalidateSize(); map.fitBounds(SG_BOUNDS); }
 });
 </script>
