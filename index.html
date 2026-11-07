@@ -125,13 +125,6 @@
   .trend { margin-top: 6px; font-size: 13px; color: var(--muted); min-height: 18px; }
   .trend b { color: var(--text); }
   .trend .up { color: var(--very); } .trend .down { color: var(--good); }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px auto 0; max-width: 420px; text-align: left; }
-  .stat { background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
-  .stat .k { font-size: 11px; color: var(--muted); }
-  .stat .v { font-size: 18px; font-weight: 700; line-height: 1.2; display: flex; align-items: center; gap: 6px; }
-  .stat .v i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
-  .stat .s { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .stat.alert { border-color: var(--hazard); }
   .hero-spark { max-width: 420px; margin: 12px auto 0; text-align: left; }
   .hero-spark .k { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
   #heroSpark { width: 100%; height: 56px; display: block; overflow: visible; }
@@ -208,26 +201,6 @@
   .tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; text-transform: capitalize; }
   .tip .row i { width: 10px; height: 3px; border-radius: 2px; }
   .tip .row b { font-variant-numeric: tabular-nums; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; padding: 5px 10px; font-size: 12.5px; background: var(--card-2); }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-  table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  table.data th, table.data td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--grid); }
-  table.data th:first-child, table.data td:first-child { text-align: left; }
-  table.data th { color: var(--muted); font-weight: 600; text-transform: capitalize; }
-  .table-wrap { max-height: 320px; overflow: auto; }
-
-  /* Pollutant breakdown */
-  .drivers { width: 100%; border-collapse: separate; border-spacing: 0 6px; font-size: 13px; }
-  .drivers th { color: var(--muted); font-weight: 600; font-size: 12px; text-align: left; padding: 0 8px 2px; white-space: nowrap; }
-  .drivers td { padding: 6px 8px; background: var(--card-2); vertical-align: middle; white-space: nowrap; }
-  .drivers td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; text-transform: capitalize; border-left: 4px solid var(--rc); }
-  .drivers td:last-child { border-radius: 0 10px 10px 0; }
-  .si { display: flex; align-items: center; gap: 6px; min-width: 70px; font-variant-numeric: tabular-nums; }
-  .si .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; min-width: 24px; }
-  .si .bar i { display: block; height: 100%; border-radius: 3px; }
-  .drivers-wrap { overflow-x: auto; }
-  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .region .extra b { color: var(--text); font-weight: 600; }
   select { font: inherit; font-size: 12.5px; border-radius: 9px; border: 1px solid var(--border); background: var(--card-2); color: var(--text); padding: 5px 8px; }
@@ -303,7 +276,6 @@
       <div style="margin-top:8px"><span class="pill" id="maxBand" style="background:var(--muted)">Loading…</span></div>
       <div class="trend" id="trend"></div>
       <div class="meta" id="meta">Fetching latest readings…</div>
-      <div class="stats" id="stats" hidden></div>
       <div class="hero-spark" id="heroSparkWrap" hidden>
         <div class="k"><span>Highest PSI, last 24 hours</span><span id="sparkRange"></span></div>
         <svg id="heroSpark" viewBox="0 0 400 56" preserveAspectRatio="none" role="img" aria-label="Highest PSI over the last 24 hours"></svg>
@@ -316,12 +288,6 @@
       <div class="forecast" id="forecast">Forecast: loading…</div>
     </section>
   </div>
-
-  <section class="card" style="margin-bottom:16px" id="driversCard" hidden>
-    <div class="card-head"><h2>PSI and PM2.5 by region</h2><span class="sub">24-hr PSI · PM2.5 1-hr and 24-hr</span></div>
-    <div class="drivers-wrap" id="drivers"></div>
-    <div class="note" id="driversNote"></div>
-  </section>
 
   <section class="card map-card">
     <div class="card-head">
@@ -338,9 +304,6 @@
       <div class="head-ctl">
       <label for="metric" style="color:var(--muted)">Show</label>
       <select id="metric" aria-label="Reading to chart"></select>
-      <div class="seg" role="group" aria-label="View">
-        <button id="viewChart" aria-pressed="true">Chart</button><button id="viewTable" aria-pressed="false">Table</button>
-      </div>
       </div>
     </div>
     <div class="legend" id="legend"></div>
@@ -348,7 +311,6 @@
       <svg id="chart" viewBox="0 0 900 280" role="img" aria-label="24-hour PSI trend by region"></svg>
       <div class="tip" id="tip"></div>
     </div>
-    <div class="table-wrap" id="tableWrap" hidden></div>
     <details class="logbox"><summary>Activity log</summary><div class="log" id="log"></div></details>
   </section>
 
@@ -695,10 +657,8 @@ function renderLive(items, animate = true) {
     </div>`;
   }).join("");
 
-  renderDrivers(latest);
   fillMetricSelect(latest);
   renderChart(items);
-  renderTable(items);
   renderMap(latest);
   return { latest, psi, worst };
 }
@@ -718,16 +678,6 @@ function renderHeroExtras(items, psi, worst) {
   $("trend").innerHTML = d == null ? "" : d > 0 ? `<span class="up">▲ ${d}</span> since the last hour` : d < 0 ? `<span class="down">▼ ${-d}</span> since the last hour` : "No change since the last hour";
 
   const hi = Math.max(...maxes), lo = Math.min(...maxes);
-  const hiAt = items[maxes.lastIndexOf(hi)].timestamp, loAt = items[maxes.lastIndexOf(lo)].timestamp;
-  const gap = threshold - worst;
-  const stat = (k, v, sub, extra = "") => `<div class="stat ${extra}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
-  const dot = v => `<i style="background:${bandColor(v)}"></i>`;
-  $("stats").hidden = false;
-  $("stats").innerHTML =
-    stat("24-hr high", `${dot(hi)}${hi}`, `at ${fmtHour(hiAt)}`) +
-    stat("24-hr low", `${dot(lo)}${lo}`, `at ${fmtHour(loAt)}`) +
-    stat("Alarm level", gap > 0 ? `${gap} <span style="font-size:12px;font-weight:500;color:var(--muted)">below</span>` : `${-gap} <span style="font-size:12px;font-weight:500;color:var(--hazard)">over</span>`, `alarm at ${threshold}`, gap <= 0 ? "alert" : "");
-
   // mini 24-hr trend of the highest reading
   const W = 400, H = 56, n = maxes.length, yMin = Math.max(0, Math.min(lo, threshold) - 15), yMax = Math.max(hi, threshold) + 10;
   const x = i => (n < 2 ? W : (i / (n - 1)) * W), y = v => H - 4 - ((v - yMin) / (yMax - yMin)) * (H - 8);
@@ -750,25 +700,6 @@ function extraLine(rd, r) {
   return parts.length ? `<div class="extra">${parts.join(" · ")} µg/m³</div>` : "";
 }
 
-function renderDrivers(latest) {
-  const rd = latest.readings, has1 = !!rd.pm25_one_hourly, has24 = !!rd.pm25_twenty_four_hourly;
-  $("driversCard").hidden = false;
-  const psiMax = Math.max(100, ...REGIONS.map(r => num(rd.psi_twenty_four_hourly?.[r]) || 0));
-  const pmMax = Math.max(60, ...REGIONS.flatMap(r => [num(rd.pm25_one_hourly?.[r]) || 0, num(rd.pm25_twenty_four_hourly?.[r]) || 0]));
-  const bar = (v, max, color) => `<span class="bar"><i style="width:${Math.max(3, v / max * 100)}%;background:${color}"></i></span>`;
-  const dot = c => `<i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${c}"></i>`;
-  $("drivers").innerHTML = `<table class="drivers"><thead><tr><th>Region</th><th>24-hr PSI</th>${has1 ? "<th>PM2.5 1-hr (µg/m³)</th>" : ""}${has24 ? "<th>PM2.5 24-hr (µg/m³)</th>" : ""}</tr></thead><tbody>` +
-    REGIONS.map(r => {
-      const psi = num(rd.psi_twenty_four_hourly?.[r]), p1 = num(rd.pm25_one_hourly?.[r]), p24 = num(rd.pm25_twenty_four_hourly?.[r]);
-      return `<tr style="--rc:${RC(r)}"><td>${r}</td>` +
-        `<td>${psi == null ? "–" : `<div class="si" title="24-hr PSI ${psi} (${band(psi)[1]})"><b>${psi}</b>${bar(psi, psiMax, bandColor(psi))}<span class="bandtag">${band(psi)[1]}</span></div>`}</td>` +
-        (has1 ? `<td>${p1 == null ? "–" : `<div class="si" title="PM2.5 1-hr ${p1} µg/m³ (${pmBand(p1)[1]})"><b>${p1}</b>${bar(p1, pmMax, `var(${pmBand(p1)[2]})`)}<span class="bandtag">${pmBand(p1)[1]}</span></div>`}</td>` : "") +
-        (has24 ? `<td>${p24 == null ? "–" : `<div class="si"><b>${p24}</b>${bar(p24, pmMax, "var(--muted)")}</div>`}</td>` : "") +
-        `</tr>`;
-    }).join("") + `</tbody></table>`;
-  $("driversNote").textContent = `PSI bands: Good 0–50, Moderate 51–100, Unhealthy 101–200, Very unhealthy 201–300, Hazardous 301+.${has1 ? " PM2.5 1-hr bands (µg/m³): Normal 0–55, Elevated 56–150, High 151–250, Very high 251+." : ""} Reading at ${fmtTime(latest.timestamp)}.`;
-}
-
 function fillMetricSelect(latest) {
   const avail = METRICS.filter(m => latest.readings[m.key]);
   if (!avail.some(m => m.key === metricKey)) metricKey = "psi_twenty_four_hourly";
@@ -777,7 +708,7 @@ function fillMetricSelect(latest) {
 }
 $("metric").onchange = e => {
   metricKey = e.target.value; store.set("psiMetric", metricKey);
-  if (latestItems.length) { renderChart(latestItems); renderTable(latestItems); }
+  if (latestItems.length) renderChart(latestItems);
 };
 const curMetric = () => METRICS.find(m => m.key === metricKey) || METRICS[0];
 
@@ -870,19 +801,6 @@ function wireChartHover() {
     el.onmouseleave = () => { svg.classList.remove("dim"); svg.querySelectorAll(".series.hi").forEach(n => n.classList.remove("hi")); };
   });
 }
-
-function renderTable(items) {
-  const M = curMetric();
-  $("tableWrap").innerHTML = `<table class="data"><caption style="text-align:left;color:var(--muted);padding:4px 8px">${M.name}${M.unit ? ` (${M.unit})` : ""}</caption><thead><tr><th>Time</th>${REGIONS.map(r => `<th>${r}</th>`).join("")}</tr></thead><tbody>` +
-    [...items].reverse().map(it => `<tr><td>${fmtTime(it.timestamp)}</td>${REGIONS.map(r => `<td>${val(it, M.key, r) ?? "–"}</td>`).join("")}</tr>`).join("") +
-    `</tbody></table>`;
-}
-function setView(table) {
-  $("viewChart").setAttribute("aria-pressed", !table); $("viewTable").setAttribute("aria-pressed", table);
-  $("chartWrap").hidden = table; $("legend").hidden = table; $("tableWrap").hidden = !table;
-}
-$("viewChart").onclick = () => { setView(false); latestItems.length && renderChart(latestItems); };
-$("viewTable").onclick = () => setView(true);
 
 // ---------- Zone map ----------
 // Fallback label points; replaced by the API's regionMetadata on each fetch

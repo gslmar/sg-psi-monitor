@@ -4,12 +4,11 @@ Live haze monitor for Singapore that sounds an alarm when the 24-hr PSI reaches 
 
 **Live site:** https://gslmar.github.io/sg-psi-monitor/
 
-- Animated PSI gauge for the highest 24-hr reading, with a dot for every region, the change since the last hour, 24-hr high/low, distance to your alarm level, a mini 24-hr trend, a drifting haze effect that thickens as PSI rises and health advice for the current band
+- Animated PSI gauge for the highest 24-hr reading, with a dot for every region, the change since the last hour, a mini 24-hr trend, a drifting haze effect that thickens as PSI rises and health advice for the current band
 - Live status badge with countdown to the next refresh (every 5 minutes)
 - Region cards with change since the last hour and a 24-hr sparkline
-- PSI and PM2.5 table: each region's 24-hr PSI, 1-hr PM2.5 (with NEA's band) and 24-hr PM2.5
 - Haze map showing each zone's 24-hr PSI and 1-hr PM2.5, with a glowing ring coloured and sized by PSI; click a zone for details
-- Interactive 24-hour trend chart for PSI, 1-hr PM2.5 or 24-hr PM2.5 (hover for values, or switch to a table) and NEA's daily PSI forecast
+- Interactive 24-hour trend chart for PSI, 1-hr PM2.5 or 24-hr PM2.5 (hover for values) and NEA's daily PSI forecast
 - Light and dark themes (follows your system, or pick one with the theme button)
 - iPhone-style alarm, flashing banner and desktop notification when any region crosses the threshold
 
