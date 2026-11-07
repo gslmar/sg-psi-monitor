@@ -4,124 +4,240 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Singapore PSI Monitor</title>
+<meta name="theme-color" content="#0b1017">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #16191d; --muted: #646b75; --border: #e3e6ea;
-    --good: #2e9e5b; --moderate: #2f7fd1; --unhealthy: #d9a21b; --very: #e0662a; --hazard: #c8312f;
-    --alarm-bg: #c8312f; --alarm-text: #fff; --warn-bg: #fff4d6; --warn-text: #6b4b00; --warn-border: #f0d68a;
-    --grid: #eceef1;
+    color-scheme: light;
+    --bg: #eef2f7; --bg-glow: #dce7f5; --card: #ffffff; --card-2: #f6f8fb;
+    --text: #0f1722; --muted: #5b6676; --border: rgba(15,23,34,.09); --grid: #e6eaf0; --axis: #c9d0da;
+    --shadow: 0 1px 2px rgba(15,23,34,.05), 0 8px 24px rgba(15,23,34,.06);
+    --accent: #2a78d6;
+    /* PSI bands (status colours, same in both themes) */
+    --good: #16a35a; --moderate: #2a78d6; --unhealthy: #e9a400; --very: #ec6a2c; --hazard: #d03b3b;
+    /* Region identity colours (validated categorical order) */
+    --r-north: #2a78d6; --r-south: #eb6834; --r-east: #1baf7a; --r-west: #eda100; --r-central: #e87ba4;
+    --alarm-bg: #d03b3b; --alarm-text: #fff; --warn-bg: #fff4d6; --warn-text: #6b4b00; --warn-border: #f0d68a;
+    --haze: 150,135,110;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #111316; --card: #1a1d21; --text: #eceef1; --muted: #9aa1ab; --border: #2a2e34;
-      --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17; --grid: #24282d;
+      color-scheme: dark;
+      --bg: #0b1017; --bg-glow: #13233a; --card: #141a24; --card-2: #1a2230;
+      --text: #e8edf4; --muted: #93a0b2; --border: rgba(255,255,255,.08); --grid: #222b38; --axis: #33404f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+      --accent: #3987e5;
+      --r-north: #3987e5; --r-south: #d95926; --r-east: #199e70; --r-west: #c98500; --r-central: #d55181;
+      --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17;
+      --haze: 190,170,140;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #111316; --card: #1a1d21; --text: #eceef1; --muted: #9aa1ab; --border: #2a2e34;
-    --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17; --grid: #24282d;
+    color-scheme: dark;
+    --bg: #0b1017; --bg-glow: #13233a; --card: #141a24; --card-2: #1a2230;
+    --text: #e8edf4; --muted: #93a0b2; --border: rgba(255,255,255,.08); --grid: #222b38; --axis: #33404f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    --accent: #3987e5;
+    --r-north: #3987e5; --r-south: #d95926; --r-east: #199e70; --r-west: #c98500; --r-central: #d55181;
+    --warn-bg: #3a2f10; --warn-text: #f5d98a; --warn-border: #5c4a17;
+    --haze: 190,170,140;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0; color: var(--text); background: var(--bg);
+    background-image: radial-gradient(1200px 500px at 50% -120px, var(--bg-glow), transparent 70%);
+    background-repeat: no-repeat; min-height: 100vh;
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
-  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
-  h1 { font-size: 22px; margin: 0; }
-  .sub { color: var(--muted); font-size: 13px; }
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  button, input {
-    font: inherit; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--card); color: var(--text); padding: 7px 12px;
-  }
-  button { cursor: pointer; }
-  button:hover { border-color: var(--muted); }
-  button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
-  input[type=number] { width: 80px; }
-  label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 22px 16px 48px; }
 
-  .banner { display: none; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  /* ---------- Header ---------- */
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(135deg, var(--good), var(--moderate) 45%, var(--very)); box-shadow: var(--shadow); }
+  h1 { font-size: 21px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px 6px 10px; box-shadow: var(--shadow); }
+  .live b { color: var(--text); font-weight: 600; letter-spacing: .06em; font-size: 11px; }
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); position: relative; }
+  .live-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--good); animation: ripple 1.8s ease-out infinite; }
+  .live.stale .live-dot, .live.stale .live-dot::after { background: var(--very); }
+  .live-bar { width: 60px; height: 4px; border-radius: 2px; background: var(--grid); overflow: hidden; }
+  .live-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
+  @keyframes ripple { from { transform: scale(1); opacity: .6; } to { transform: scale(3); opacity: 0; } }
+  .head-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .toolbar .group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .arm-status { font-size: 13px; color: var(--muted); display: flex; align-items: center; }
+  button, input {
+    font: inherit; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--card-2); color: var(--text); padding: 7px 12px;
+  }
+  button { cursor: pointer; transition: border-color .15s, transform .1s, background .15s; }
+  button:hover { border-color: var(--muted); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button.primary.armed { background: var(--good); }
+  button.icon { padding: 7px 10px; line-height: 1; }
+  input[type=number] { width: 76px; }
+  label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
+  .status-dot.on { background: var(--good); }
+
+  /* ---------- Banners ---------- */
+  .banner { display: none; border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .banner.show { display: flex; }
   .banner.alarm { background: var(--alarm-bg); color: var(--alarm-text); animation: pulse 1s infinite alternate; }
   .banner.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
   .banner strong { font-size: 17px; display: block; }
   .banner button { background: #fff; color: #111; border: none; font-weight: 600; }
-  @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.25); } }
-  @media (prefers-reduced-motion: reduce) { .banner.alarm { animation: none; } }
+  @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.22); } }
 
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
-  .grid { display: grid; gap: 16px; grid-template-columns: 1.1fr 1fr; margin-bottom: 16px; }
-  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  /* ---------- Cards ---------- */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); position: relative; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1.15fr; margin-bottom: 16px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  h2 { font-size: 15px; margin: 0 0 12px; letter-spacing: -.005em; }
+  .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .card-head h2 { margin: 0; }
 
-  .hero .label { color: var(--muted); font-size: 13px; }
-  .hero .big { font-size: 64px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
-  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; }
-  .hero .meta { margin-top: 10px; color: var(--muted); font-size: 13px; }
+  /* Hero gauge */
+  .hero { overflow: hidden; text-align: center; padding-bottom: 20px; }
+  .hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .16;
+    background: radial-gradient(420px 260px at 50% 0%, var(--band, var(--moderate)), transparent 70%); transition: background .8s; }
+  #haze { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .hero > *:not(#haze) { position: relative; }
+  .hero .label { color: var(--muted); font-size: 13px; text-align: left; }
+  .gauge-wrap { position: relative; max-width: 340px; margin: 4px auto 0; }
+  #gauge { width: 100%; height: auto; display: block; overflow: visible; }
+  #gauge .tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #needle { transform-origin: 170px 170px; transition: transform 1.4s cubic-bezier(.2,.9,.25,1.15); }
+  .gauge-num { position: absolute; left: 0; right: 0; bottom: 4px; }
+  .big { font-size: 60px; font-weight: 750; line-height: 1; letter-spacing: -.03em; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .pill.dark-ink { color: #1a1300; }
+  .hero .meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .advice { margin: 14px auto 0; max-width: 380px; font-size: 13.5px; padding: 9px 12px; border-radius: 10px;
+    background: var(--card-2); border: 1px solid var(--border); text-align: left; display: flex; gap: 10px; align-items: flex-start; }
+  .advice i { flex: 0 0 4px; align-self: stretch; border-radius: 2px; background: var(--band, var(--moderate)); }
 
-  .regions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  @media (max-width: 520px) { .regions { grid-template-columns: repeat(3, 1fr); } }
-  .region { border-radius: 10px; padding: 10px 8px; text-align: center; border: 1px solid var(--border); }
-  .region .name { font-size: 12px; color: var(--muted); text-transform: capitalize; }
-  .region .val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .region .bar { height: 4px; border-radius: 2px; margin-top: 6px; }
+  /* Regions */
+  .regions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .region { border-radius: 12px; padding: 10px 12px 8px; border: 1px solid var(--border); background: var(--card-2); transition: transform .2s, box-shadow .2s; position: relative; overflow: hidden; }
+  .region:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .region::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rc); }
+  .region .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .region .name { font-size: 12.5px; font-weight: 600; text-transform: capitalize; }
+  .region .val { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .region .delta { font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+  .region .bandtag { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+  .region .bandtag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .region svg { display: block; width: 100%; height: 30px; margin-top: 4px; }
   .region.over { border-color: var(--hazard); box-shadow: inset 0 0 0 1px var(--hazard); }
 
-  .forecast { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 14px; }
+  .forecast { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--border); font-size: 14px;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
   .forecast b { font-variant-numeric: tabular-nums; }
+  .fc-range { position: relative; height: 8px; flex: 1 1 100%; border-radius: 4px; overflow: hidden; margin-top: 2px;
+    background: linear-gradient(90deg, var(--good) 0 12.5%, var(--moderate) 12.5% 25%, var(--unhealthy) 25% 50%, var(--very) 50% 75%, var(--hazard) 75%); opacity: .35; }
+  .fc-mark { position: absolute; top: -3px; height: 14px; border-radius: 4px; border: 2px solid var(--text); background: transparent; }
+  .fc-wrap { position: relative; flex: 1 1 100%; }
 
-  h2 { font-size: 15px; margin: 0 0 10px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-  .legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
-  #chart { width: 100%; height: auto; display: block; }
-  #chart text { fill: var(--muted); font-size: 11px; }
-
+  /* Map */
   .map-card { margin-bottom: 16px; }
-  .map-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
-  #map { height: 400px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); }
-  @media (max-width: 520px) { #map { height: 300px; } }
-  .leaflet-tile-pane { filter: saturate(0.4); }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.3); }
-  }
-  :root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.3); }
-  .band-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); margin: 10px 0 0; }
-  .band-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  #map { height: 420px; border-radius: 12px; border: 1px solid var(--border); background: var(--card-2); }
+  @media (max-width: 520px) { #map { height: 320px; } }
+  .band-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+  .band-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
   .zone-label { background: none; border: none; }
   .zone-label div {
-    transform: translate(-50%, -50%); display: inline-block; white-space: nowrap; text-align: center;
-    background: var(--card); color: var(--text); border-radius: 8px; padding: 3px 8px;
-    border: 2px solid; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 11px; line-height: 1.2;
+    transform: translate(-50%, -50%); display: inline-block; white-space: nowrap; text-align: center; cursor: pointer;
+    background: var(--card); color: var(--text); border-radius: 10px; padding: 4px 10px;
+    border: 2px solid; box-shadow: 0 2px 8px rgba(0,0,0,.25); font-size: 11px; line-height: 1.2; font-weight: 600;
   }
-  .zone-label div { cursor: pointer; }
-  .zone-label b { display: block; font-size: 18px; }
-  .zone-label .over { animation: pulse 0.8s infinite alternate; }
+  .zone-label b { display: block; font-size: 19px; }
+  .zone-label .over { animation: pulse .8s infinite alternate; }
+  .haze-ring { animation: breathe 3.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .haze-ring.over { animation-duration: 1.2s; }
+  @keyframes breathe { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  .leaflet-container { font: inherit; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--card); color: var(--text); }
   .leaflet-popup-content { font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .leaflet-popup-content table { border-collapse: collapse; }
-  .leaflet-popup-content td { padding: 1px 8px 1px 0; }
+  .leaflet-popup-content table { border-collapse: collapse; margin: 4px 0; }
+  .leaflet-popup-content td { padding: 1px 10px 1px 0; }
   .leaflet-popup-content td + td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
-  .log { margin-top: 16px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
-  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
-  .status-dot.on { background: var(--good); }
+  /* Chart */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .chart-wrap { position: relative; overflow: hidden; }
+  #chart { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  #chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  #chart .dl { fill: var(--text); font-size: 11.5px; font-weight: 600; }
+  #chart .series { transition: opacity .2s; }
+  #chart.dim .series:not(.hi) { opacity: .2; }
+  .tip { position: absolute; pointer-events: none; background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; font-size: 12.5px; box-shadow: var(--shadow); min-width: 150px; opacity: 0; visibility: hidden; left: 0; top: 0; transition: opacity .12s; z-index: 5; }
+  .tip.show { opacity: 1; visibility: visible; }
+  .tip .t { color: var(--muted); margin-bottom: 4px; }
+  .tip .row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; text-transform: capitalize; }
+  .tip .row i { width: 10px; height: 3px; border-radius: 2px; }
+  .tip .row b { font-variant-numeric: tabular-nums; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 10px; font-size: 12.5px; background: var(--card-2); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  table.data th, table.data td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--grid); }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th { color: var(--muted); font-weight: 600; text-transform: capitalize; }
+  .table-wrap { max-height: 320px; overflow: auto; }
+
+  details.logbox { margin-top: 14px; }
+  details.logbox summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .log { margin-top: 8px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
+  footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--muted); }
+  footer a { color: inherit; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <div>
-      <h1>Singapore PSI Monitor</h1>
-      <div class="sub"><span id="armDot" class="status-dot"></span><span id="armText">Alarm sound off: click "Arm alarm" to enable sound and notifications</span></div>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h16a3 3 0 1 1-3 3"/><path d="M3 16h7"/></svg>
+      </div>
+      <div>
+        <h1>Singapore PSI Monitor</h1>
+        <div class="sub">24-hr Pollutant Standards Index · data.gov.sg</div>
+      </div>
     </div>
-    <div class="controls">
+    <div class="head-right">
+      <div class="live" id="live" title="Readings refresh automatically every 5 minutes">
+        <span class="live-dot"></span><b>LIVE</b><span id="liveText">connecting…</span><span class="live-bar"><i id="liveBar" style="width:0"></i></span>
+      </div>
+      <button class="icon" id="themeBtn" title="Switch theme" aria-label="Switch theme"></button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="arm-status"><span id="armDot" class="status-dot"></span><span id="armText">Alarm sound off: click "Arm alarm" to enable sound and notifications</span></div>
+    <div class="group">
       <label>Alarm at PSI ≥ <input id="threshold" type="number" min="1" max="500" value="200"></label>
       <button id="armBtn" class="primary">Arm alarm</button>
       <button id="testBtn">Test alarm</button>
-      <button id="refreshBtn">Refresh</button>
+      <button id="refreshBtn">↻ Refresh</button>
     </div>
-  </header>
+  </div>
 
   <div id="alarmBanner" class="banner alarm" role="alert">
     <div><strong id="alarmTitle"></strong><span id="alarmMsg"></span></div>
@@ -133,34 +249,57 @@
   </div>
 
   <div class="grid">
-    <section class="card hero">
+    <section class="card hero" id="hero">
+      <canvas id="haze" aria-hidden="true"></canvas>
       <div class="label">Highest 24-hr PSI in Singapore</div>
+      <div class="gauge-wrap">
+        <svg id="gauge" viewBox="0 0 340 190" role="img" aria-label="PSI gauge">
+          <g id="gaugeArcs"></g>
+          <g id="gaugeTicks"></g>
+          <g id="needle" style="transform: rotate(-90deg)">
+            <path d="M170 52 L175 170 L165 170 Z" fill="var(--text)"/>
+          </g>
+          <circle cx="170" cy="170" r="9" fill="var(--card)" stroke="var(--text)" stroke-width="3"/>
+        </svg>
+      </div>
       <div class="big" id="maxVal">–</div>
-      <span class="pill" id="maxBand">Loading…</span>
+      <div style="margin-top:8px"><span class="pill" id="maxBand" style="background:var(--muted)">Loading…</span></div>
       <div class="meta" id="meta">Fetching latest readings…</div>
+      <div class="advice" id="advice" hidden><i></i><span id="adviceText"></span></div>
     </section>
     <section class="card">
-      <h2>By region</h2>
+      <div class="card-head"><h2>By region</h2><span class="sub">change vs 1 hr ago · 24-hr trend</span></div>
       <div class="regions" id="regions"></div>
       <div class="forecast" id="forecast">Forecast: loading…</div>
     </section>
   </div>
 
   <section class="card map-card">
-    <div class="map-head">
+    <div class="card-head">
       <h2>Haze map by zone</h2>
-      <span class="sub">Click a zone reading for pollutant details</span>
+      <span class="sub">Click a zone for pollutant details</span>
     </div>
     <div id="map" role="img" aria-label="Map of Singapore's five PSI zones coloured by current 24-hr PSI"></div>
     <div class="band-legend" id="bandLegend"></div>
   </section>
 
   <section class="card">
-    <h2>Last 24 hours</h2>
+    <div class="card-head">
+      <h2>Last 24 hours</h2>
+      <div class="seg" role="group" aria-label="View">
+        <button id="viewChart" aria-pressed="true">Chart</button><button id="viewTable" aria-pressed="false">Table</button>
+      </div>
+    </div>
     <div class="legend" id="legend"></div>
-    <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="24-hour PSI trend by region"></svg>
-    <div class="log" id="log"></div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" viewBox="0 0 900 280" role="img" aria-label="24-hour PSI trend by region"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="table-wrap" id="tableWrap" hidden></div>
+    <details class="logbox"><summary>Activity log</summary><div class="log" id="log"></div></details>
   </section>
+
+  <footer>Data: <a href="https://data.gov.sg" target="_blank" rel="noopener">data.gov.sg</a> (NEA) · Map © OpenStreetMap contributors © CARTO</footer>
 </main>
 
 <script>
@@ -168,22 +307,33 @@ const REALTIME_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi";
 const FORECAST_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=d_c2c7fa70f297cdaee13afbe53a900eb9";
 const POLL_MS = 5 * 60 * 1000;
 const REGIONS = ["north", "south", "east", "west", "central"];
-const REGION_COLORS = { north: "#2f7fd1", south: "#2e9e5b", east: "#8a5cd6", west: "#e0662a", central: "#d13f8a" };
+const RC = r => `var(--r-${r})`;
 const BANDS = [[50, "Good", "--good"], [100, "Moderate", "--moderate"], [200, "Unhealthy", "--unhealthy"], [300, "Very unhealthy", "--very"], [Infinity, "Hazardous", "--hazard"]];
+const ADVICE = {
+  "Good": "Air quality is good. Normal activities.",
+  "Moderate": "Air quality is acceptable. Normal activities.",
+  "Unhealthy": "Reduce prolonged or strenuous outdoor exertion. Elderly, children and those with heart or lung conditions should avoid it.",
+  "Very unhealthy": "Avoid prolonged or strenuous outdoor exertion. Vulnerable people should minimise outdoor activity.",
+  "Hazardous": "Minimise outdoor activity. Wear an N95 mask if you must go outside.",
+};
+const GAUGE_MAX = 400;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = id => document.getElementById(id);
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
+const cap = s => s[0].toUpperCase() + s.slice(1);
 
 let threshold = Number(store.get("psiThreshold")) || 200;
 $("threshold").value = threshold;
 let lastAlarmedReading = null, lastWarnedForecast = null;
-let latestItems = [];
+let latestItems = [], nextCheckAt = Date.now(), lastSuccess = 0;
 
 function band(psi) { return BANDS.find(b => psi <= b[0]); }
 function bandColor(psi) { return getComputedStyle(document.documentElement).getPropertyValue(band(psi)[2]).trim(); }
+function inkOn(psi) { return band(psi)[1] === "Unhealthy" ? "dark-ink" : ""; }
 function log(msg) {
   const t = new Date().toLocaleTimeString("en-SG", { hour12: false });
   $("log").insertAdjacentHTML("afterbegin", `<div>[${t}] ${msg}</div>`);
@@ -195,13 +345,41 @@ function sgDate(offsetDays = 0) {
 function fmtTime(iso) {
   return new Date(iso).toLocaleString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit", day: "numeric", month: "short" });
 }
+function fmtHour(iso) {
+  return new Date(iso).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric" });
+}
+function ago(ms) {
+  const m = Math.round(ms / 60000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ${m % 60} min ago`;
+}
+
+// ---------- Theme ----------
+const THEMES = ["auto", "light", "dark"];
+const svgIcon = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">${d}</svg>`;
+const THEME_ICONS = {
+  auto: svgIcon('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
+  light: svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  dark: svgIcon('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+};
+let theme = store.get("psiTheme") || "auto";
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  $("themeBtn").innerHTML = THEME_ICONS[theme];
+  $("themeBtn").title = `Theme: ${theme} (click to change)`;
+  setTiles();
+  if (latestItems.length) renderLive(latestItems, false);
+}
+$("themeBtn").onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set("psiTheme", theme); applyTheme(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => theme === "auto" && applyTheme());
+const isDark = () => getComputedStyle(document.documentElement).colorScheme.includes("dark");
 
 // ---------- Sound + notifications ----------
 let audioCtx = null, sirenTimer = null;
 function armAlarm() {
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.resume();
+    audioCtx.resume().then(updateArmStatus);
   } catch {}
   if ("Notification" in window && Notification.permission === "default") Notification.requestPermission().then(updateArmStatus);
   updateArmStatus();
@@ -214,6 +392,7 @@ function updateArmStatus() {
     ? `Alarm armed: sound on, desktop notifications ${notif ? "on" : "off"}. Keep this tab open.`
     : 'Alarm sound off: click "Arm alarm" to enable sound and notifications';
   $("armBtn").textContent = sound ? "Armed ✓" : "Arm alarm";
+  $("armBtn").classList.toggle("armed", !!sound);
 }
 function tone(freqFrom, freqTo, dur, when) {
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -259,7 +438,6 @@ function notify(title, body) {
     try { new Notification(title, { body, requireInteraction: true }); } catch {}
   }
 }
-
 function raiseAlarm(title, msg) {
   $("alarmTitle").textContent = title; $("alarmMsg").textContent = msg;
   $("alarmBanner").classList.add("show");
@@ -292,6 +470,7 @@ async function fetchLive() {
   if (today.code !== 0) throw new Error(today.errorMsg || "unexpected response");
   const items = [...today.data.items, ...(yesterday?.data?.items || [])]
     .filter(i => i.readings?.psi_twenty_four_hourly)
+    .filter((i, n, arr) => arr.findIndex(j => j.timestamp === i.timestamp) === n)
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   if (!items.length) { // just after midnight today's list can be empty: fall back to latest
     const latest = await getJson(REALTIME_URL);
@@ -310,58 +489,213 @@ async function fetchForecast() {
   return { date: r.forecast_date, lower, upper };
 }
 
+// ---------- Gauge ----------
+const GX = 170, GY = 170, GR = 135, GW = 20;
+const angleFor = v => Math.PI * (1 - Math.min(v, GAUGE_MAX) / GAUGE_MAX); // radians, 180°→0°
+function polar(a, r) { return [GX + r * Math.cos(a), GY - r * Math.sin(a)]; }
+function arcPath(v0, v1, r) {
+  const [x0, y0] = polar(angleFor(v0), r), [x1, y1] = polar(angleFor(v1), r);
+  return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+}
+function initGauge() {
+  const stops = [0, 50, 100, 200, 300, GAUGE_MAX];
+  $("gaugeArcs").innerHTML =
+    `<path d="${arcPath(0, GAUGE_MAX, GR)}" stroke="var(--grid)" stroke-width="${GW + 6}" fill="none" stroke-linecap="round"/>` +
+    BANDS.map(([, , v], i) =>
+      `<path d="${arcPath(stops[i] + (i ? 1.2 : 0), stops[i + 1] - (i < 4 ? 1.2 : 0), GR)}" stroke="var(${v})" stroke-width="${GW}" fill="none" stroke-linecap="${i === 0 || i === 4 ? "round" : "butt"}"/>`).join("") +
+    `<path id="thrMark" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>`;
+  $("gaugeTicks").innerHTML = stops.map(v => {
+    const [x, y] = polar(angleFor(v), GR - GW / 2 - 14);
+    return `<text class="tick" x="${x}" y="${y + 3}" text-anchor="middle">${v === GAUGE_MAX ? v + "+" : v}</text>`;
+  }).join("");
+}
+function setGauge(v) {
+  const deg = -90 + (Math.min(v, GAUGE_MAX) / GAUGE_MAX) * 180;
+  $("needle").style.transform = `rotate(${deg}deg)`;
+  const a = angleFor(threshold), [x0, y0] = polar(a, GR - GW / 2 - 3), [x1, y1] = polar(a, GR + GW / 2 + 3);
+  $("thrMark").setAttribute("d", `M${x0} ${y0} L${x1} ${y1}`);
+}
+let shownVal = 0;
+function countTo(el, to) {
+  const from = shownVal; shownVal = to;
+  if (reduceMotion || from === to) { el.textContent = to; return; }
+  const t0 = performance.now(), dur = 1200;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ---------- Haze animation (density follows the PSI) ----------
+const haze = { level: 0, parts: [], ctx: null, w: 0, h: 0 };
+function initHaze() {
+  const c = $("haze"); haze.ctx = c.getContext("2d");
+  const resize = () => {
+    const r = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+    haze.w = r.width; haze.h = r.height; c.width = r.width * dpr; c.height = r.height * dpr;
+    haze.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize(); addEventListener("resize", resize);
+  for (let i = 0; i < 26; i++) haze.parts.push({ x: Math.random(), y: Math.random(), r: 40 + Math.random() * 90, vx: (Math.random() - .3) * .00012, vy: (Math.random() - .5) * .00005, ph: Math.random() * 6.28 });
+  let last = performance.now();
+  const frame = now => {
+    const dt = Math.min(64, now - last); last = now;
+    drawHaze(dt, now);
+    if (!reduceMotion) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+function drawHaze(dt, now) {
+  const { ctx, w, h } = haze; if (!ctx) return;
+  ctx.clearRect(0, 0, w, h);
+  const rgb = getComputedStyle(document.documentElement).getPropertyValue("--haze").trim();
+  const n = Math.round(4 + haze.level * 22);
+  for (let i = 0; i < n; i++) {
+    const p = haze.parts[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.x > 1.2) p.x = -0.2; if (p.x < -0.2) p.x = 1.2; if (p.y > 1.1) p.y = -0.1; if (p.y < -0.1) p.y = 1.1;
+    const a = (0.025 + haze.level * 0.09) * (0.7 + 0.3 * Math.sin(now / 2400 + p.ph));
+    const x = p.x * w, y = p.y * h, g = ctx.createRadialGradient(x, y, 0, x, y, p.r);
+    g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, p.r, 0, 6.29); ctx.fill();
+  }
+}
+
 // ---------- Render ----------
-function renderLive(items) {
+function renderLive(items, animate = true) {
   const latest = items[items.length - 1];
   const psi = latest.readings.psi_twenty_four_hourly;
+  const prev = items.length > 1 ? items[items.length - 2].readings.psi_twenty_four_hourly : null;
   const worstRegion = REGIONS.reduce((a, b) => (psi[b] > psi[a] ? b : a));
   const worst = psi[worstRegion];
-  const [, bandName] = band(worst);
+  const [, bandName, bandVar] = band(worst);
 
-  $("maxVal").textContent = worst;
-  $("maxVal").style.color = bandColor(worst);
+  document.documentElement.style.setProperty("--band", `var(${bandVar})`);
+  $("hero").style.setProperty("--band", `var(${bandVar})`);
+  if (animate) countTo($("maxVal"), worst); else $("maxVal").textContent = worst;
+  setGauge(worst);
+  $("gauge").setAttribute("aria-label", `PSI gauge reading ${worst}, ${bandName}`);
   $("maxBand").textContent = bandName;
+  $("maxBand").className = "pill " + inkOn(worst);
   $("maxBand").style.background = bandColor(worst);
-  $("meta").textContent = `${worstRegion[0].toUpperCase() + worstRegion.slice(1)} · reading at ${fmtTime(latest.timestamp)} · checked ${new Date().toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" })}`;
+  $("meta").textContent = `Worst: ${cap(worstRegion)} · reading at ${fmtTime(latest.timestamp)}`;
+  $("advice").hidden = false; $("adviceText").textContent = ADVICE[bandName];
+  haze.level = Math.min(1, worst / 300);
+  if (reduceMotion) drawHaze(0, 0);
 
-  $("regions").innerHTML = REGIONS.map(r => `
-    <div class="region ${psi[r] >= threshold ? "over" : ""}">
-      <div class="name">${r}</div>
-      <div class="val" style="color:${bandColor(psi[r])}">${psi[r]}</div>
-      <div class="bar" style="background:${bandColor(psi[r])}"></div>
-    </div>`).join("");
+  $("regions").innerHTML = REGIONS.map(r => {
+    const v = psi[r], d = prev ? v - prev[r] : 0;
+    const series = items.map(i => i.readings.psi_twenty_four_hourly[r]);
+    const lo = Math.min(...series), hi = Math.max(...series), span = Math.max(hi - lo, 4);
+    const pts = series.map((s, i) => `${(i / Math.max(series.length - 1, 1)) * 100},${26 - ((s - lo) / span) * 22}`).join(" ");
+    return `
+    <div class="region ${v >= threshold ? "over" : ""}" style="--rc:${RC(r)}">
+      <div class="top"><span class="name">${r}</span><span class="bandtag"><i style="background:${bandColor(v)}"></i>${band(v)[1]}</span></div>
+      <div class="val">${v}<span class="delta">${d > 0 ? "▲" + d : d < 0 ? "▼" + -d : "–"}</span></div>
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points="0,30 ${pts} 100,30" fill="${RC(r)}" opacity=".12" stroke="none"/>
+        <polyline points="${pts}" fill="none" stroke="${RC(r)}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      </svg>
+    </div>`;
+  }).join("");
 
   renderChart(items);
+  renderTable(items);
   renderMap(latest);
   return { latest, psi, worst };
 }
 
+let chartGeom = null;
 function renderChart(items) {
-  const W = 900, H = 260, L = 40, R = 12, T = 12, B = 28;
+  const W = Math.max(320, Math.round($("chartWrap").clientWidth || 900)), H = W < 600 ? 240 : 280, L = 36, R = 78, T = 14, B = 28;
+  $("chart").setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const every = Math.max(1, Math.ceil(items.length / Math.floor((W - L - R) / 48)));
   const all = items.flatMap(i => REGIONS.map(r => i.readings.psi_twenty_four_hourly[r]));
-  const yMax = Math.max(threshold, ...all) * 1.1;
+  const yMax = Math.max(threshold, ...all) * 1.12;
   const x = i => L + (items.length < 2 ? 0 : (i / (items.length - 1)) * (W - L - R));
-  const y = v => T + (1 - v / yMax) * (H - T - B);
-  const step = yMax > 300 ? 100 : 50;
+  const y = v => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
+  const step = yMax > 300 ? 100 : yMax > 120 ? 50 : 25;
 
   let s = "";
+  // faint PSI band zones behind the data
+  let lo = 0;
+  BANDS.forEach(([max, , v]) => {
+    const top = Math.min(max, yMax);
+    if (lo < yMax) s += `<rect x="${L}" width="${W - L - R}" y="${y(top)}" height="${y(lo) - y(top)}" fill="var(${v})" opacity=".06"/>`;
+    lo = max;
+  });
   for (let v = 0; v <= yMax; v += step)
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--axis)"/>`;
   items.forEach((it, i) => {
-    if (i % 3 === 0 || i === items.length - 1) {
-      const h = new Date(it.timestamp).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric" });
-      s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${h}</text>`;
-    }
+    if ((items.length - 1 - i) % every === 0)
+      s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${fmtHour(it.timestamp)}</text>`;
   });
   s += `<line x1="${L}" x2="${W - R}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
-  s += `<text x="${W - R}" y="${y(threshold) - 5}" text-anchor="end" style="fill:var(--hazard)">Alarm ${threshold}</text>`;
+  s += `<text x="${L + 6}" y="${y(threshold) - 6}" style="fill:var(--hazard);font-weight:600">Alarm ${threshold}</text>`;
+
   REGIONS.forEach(r => {
-    const pts = items.map((it, i) => `${x(i)},${y(it.readings.psi_twenty_four_hourly[r])}`).join(" ");
-    s += `<polyline points="${pts}" fill="none" stroke="${REGION_COLORS[r]}" stroke-width="2" stroke-linejoin="round"/>`;
+    const pts = items.map((it, i) => `${x(i).toFixed(1)},${y(it.readings.psi_twenty_four_hourly[r]).toFixed(1)}`).join(" ");
+    s += `<polyline class="series" data-r="${r}" points="${pts}" fill="none" stroke="${RC(r)}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
+  // direct labels at line ends, nudged apart so they never collide
+  const last = items[items.length - 1].readings.psi_twenty_four_hourly;
+  const ends = REGIONS.map(r => ({ r, v: last[r], yy: y(last[r]) })).sort((a, b) => a.yy - b.yy);
+  for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 13) ends[i].yy = ends[i - 1].yy + 13;
+  ends.forEach(e => {
+    const ex = x(items.length - 1);
+    s += `<circle class="series" data-r="${e.r}" cx="${ex}" cy="${y(e.v)}" r="4" fill="${RC(e.r)}" stroke="var(--card)" stroke-width="2"/>`;
+    s += `<text class="dl" x="${ex + 10}" y="${e.yy + 4}">${cap(e.r)} ${e.v}</text>`;
+  });
+  s += `<g id="cross" style="display:none"><line id="crossLine" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 3"/><g id="crossDots"></g></g>`;
+  s += `<rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>`;
   $("chart").innerHTML = s;
-  $("legend").innerHTML = REGIONS.map(r => `<span><i style="background:${REGION_COLORS[r]}"></i>${r[0].toUpperCase() + r.slice(1)}</span>`).join("");
+  chartGeom = { items, x, y, L, R, W };
+  $("legend").innerHTML = REGIONS.map(r => `<span data-r="${r}"><i style="background:${RC(r)}"></i>${cap(r)}</span>`).join("");
+  wireChartHover();
 }
+
+function wireChartHover() {
+  const svg = $("chart"), hit = $("hit"), tip = $("tip");
+  const move = ev => {
+    const { items, x, y, L, R, W } = chartGeom;
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const i = Math.max(0, Math.min(items.length - 1, Math.round(((p.x - L) / (W - L - R)) * (items.length - 1))));
+    const it = items[i], psi = it.readings.psi_twenty_four_hourly, xi = x(i);
+    $("cross").style.display = "";
+    $("crossLine").setAttribute("x1", xi); $("crossLine").setAttribute("x2", xi);
+    $("crossDots").innerHTML = REGIONS.map(r => `<circle cx="${xi}" cy="${y(psi[r])}" r="4.5" fill="${RC(r)}" stroke="var(--card)" stroke-width="2"/>`).join("");
+    tip.innerHTML = `<div class="t">${fmtTime(it.timestamp)}</div>` + [...REGIONS].sort((a, b) => psi[b] - psi[a])
+      .map(r => `<div class="row"><span><i style="background:${RC(r)}"></i>${r}</span><b>${psi[r]}</b></div>`).join("");
+    tip.classList.add("show");
+    const wrap = $("chartWrap").getBoundingClientRect(), sx = wrap.width / W;
+    let left = xi * sx + 14; if (left + tip.offsetWidth > wrap.width) left = xi * sx - tip.offsetWidth - 14;
+    tip.style.left = left + "px"; tip.style.top = "6px";
+  };
+  const leave = () => { $("cross").style.display = "none"; tip.classList.remove("show"); };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerdown", move);
+  hit.addEventListener("pointerleave", leave);
+  document.querySelectorAll("#legend span").forEach(el => {
+    el.onmouseenter = () => { svg.classList.add("dim"); svg.querySelectorAll(`.series[data-r="${el.dataset.r}"]`).forEach(n => n.classList.add("hi")); };
+    el.onmouseleave = () => { svg.classList.remove("dim"); svg.querySelectorAll(".series.hi").forEach(n => n.classList.remove("hi")); };
+  });
+}
+
+function renderTable(items) {
+  $("tableWrap").innerHTML = `<table class="data"><thead><tr><th>Time</th>${REGIONS.map(r => `<th>${r}</th>`).join("")}</tr></thead><tbody>` +
+    [...items].reverse().map(it => `<tr><td>${fmtTime(it.timestamp)}</td>${REGIONS.map(r => `<td>${it.readings.psi_twenty_four_hourly[r]}</td>`).join("")}</tr>`).join("") +
+    `</tbody></table>`;
+}
+function setView(table) {
+  $("viewChart").setAttribute("aria-pressed", !table); $("viewTable").setAttribute("aria-pressed", table);
+  $("chartWrap").hidden = table; $("legend").hidden = table; $("tableWrap").hidden = !table;
+}
+$("viewChart").onclick = () => { setView(false); latestItems.length && renderChart(latestItems); };
+$("viewTable").onclick = () => setView(true);
 
 // ---------- Zone map ----------
 // Label points from the API's regionMetadata
@@ -374,23 +708,30 @@ const POLLUTANTS = [
   ["so2_twenty_four_hourly", "SO₂ (24-hr)", "µg/m³"],
   ["co_eight_hour_max", "CO (8-hr max)", "mg/m³"],
 ];
-let map = null;
-const zoneLabels = {};
-const cap = s => s[0].toUpperCase() + s.slice(1);
+let map = null, tiles = null;
+const SG_BOUNDS = [[1.235, 103.62], [1.47, 104.04]];
+const zoneLabels = {}, zoneHalos = {};
 
+function setTiles() {
+  if (!map) return;
+  const style = isDark() ? "dark_all" : "light_all";
+  if (tiles && tiles.options.style === style) return;
+  if (tiles) map.removeLayer(tiles);
+  tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`, {
+    style, maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+}
 function initMap() {
   $("bandLegend").innerHTML = BANDS.map(([max, name, v], i) =>
     `<span><i style="background:var(${v})"></i>${name} (${i ? BANDS[i - 1][0] + 1 : 0}${max === Infinity ? "+" : "–" + max})</span>`).join("");
   if (!window.L) { $("map").textContent = "Map unavailable: could not load the map library (check internet)."; return; }
 
   map = L.map("map", { scrollWheelZoom: false, zoomSnap: 0.25, attributionControl: true });
-  map.fitBounds([[1.235, 103.62], [1.47, 104.04]]);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
-
+  map.fitBounds(SG_BOUNDS);
+  setTiles();
   REGIONS.forEach(r => {
+    zoneHalos[r] = L.circle(LABEL_AT[r], { radius: 3200, stroke: false, fillOpacity: 0.22, className: "haze-ring", interactive: false }).addTo(map);
     zoneLabels[r] = L.marker(LABEL_AT[r], { icon: L.divIcon({ className: "zone-label", html: "" }) }).addTo(map);
   });
 }
@@ -400,29 +741,48 @@ function renderMap(latest) {
   const rd = latest.readings, psi = rd.psi_twenty_four_hourly;
   REGIONS.forEach(r => {
     const v = psi[r], col = bandColor(v), over = v >= threshold;
+    zoneHalos[r].setStyle({ fillColor: col, fillOpacity: 0.16 + Math.min(v, 300) / 300 * 0.3 });
+    zoneHalos[r].setRadius(2600 + Math.min(v, 300) * 9);
+    zoneHalos[r].getElement()?.classList.toggle("over", over);
     zoneLabels[r].bindPopup(`
-      <strong>${cap(r)}</strong>: 24-hr PSI <strong style="color:${col}">${v}</strong> (${band(v)[1]})
+      <strong>${cap(r)}</strong>: 24-hr PSI <strong>${v}</strong> <span class="pill ${inkOn(v)}" style="background:${col};padding:1px 8px;font-size:11px">${band(v)[1]}</span>
       <table>${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit]) =>
         `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td></tr>`).join("")}</table>
-      <span style="color:#888">Reading at ${fmtTime(latest.timestamp)}</span>`);
+      <span style="opacity:.7">Reading at ${fmtTime(latest.timestamp)}</span>`);
     zoneLabels[r].setIcon(L.divIcon({
       className: "zone-label",
-      html: `<div class="${over ? "over" : ""}" style="border-color:${over ? bandColor(301) : col}">${cap(r)}<b style="color:${col}">${v}</b></div>`,
+      html: `<div class="${over ? "over" : ""}" style="border-color:${over ? bandColor(301) : col}">${cap(r)}<b>${v}</b></div>`,
     }));
   });
 }
 
+// ---------- Live status ----------
+function tickLive() {
+  const left = Math.max(0, nextCheckAt - Date.now());
+  const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+  const latest = latestItems[latestItems.length - 1];
+  const age = latest ? Date.now() - new Date(latest.timestamp) : 0;
+  $("live").classList.toggle("stale", !lastSuccess || age > 2.5 * 3600e3);
+  $("liveText").textContent = latest
+    ? `reading ${ago(age)} · next check ${m}:${String(s).padStart(2, "0")}`
+    : lastSuccess ? "…" : "connecting…";
+  $("liveBar").style.width = `${100 - (left / POLL_MS) * 100}%`;
+}
+
 // ---------- Check loop ----------
 async function check() {
+  nextCheckAt = Date.now() + POLL_MS;
+  $("refreshBtn").disabled = true;
   try {
     latestItems = await fetchLive();
+    lastSuccess = Date.now();
     const { latest, psi, worst } = renderLive(latestItems);
     log(`24-hr PSI max ${worst} (${band(worst)[1]})`);
     const over = REGIONS.filter(r => psi[r] >= threshold).sort((a, b) => psi[b] - psi[a]);
     if (over.length && latest.timestamp !== lastAlarmedReading) {
       lastAlarmedReading = latest.timestamp;
       raiseAlarm(`PSI ALERT: ${worst} (${band(worst)[1]})`,
-        ` 24-hr PSI has reached ${threshold}+ in ${over.map(r => `${r[0].toUpperCase() + r.slice(1)} ${psi[r]}`).join(", ")}. Reduce prolonged outdoor activity and consider an N95 mask.`);
+        ` 24-hr PSI has reached ${threshold}+ in ${over.map(r => `${cap(r)} ${psi[r]}`).join(", ")}. Reduce prolonged outdoor activity and consider an N95 mask.`);
     }
   } catch (e) {
     $("meta").textContent = "Could not fetch live readings: " + e.message;
@@ -431,7 +791,10 @@ async function check() {
   try {
     const fc = await fetchForecast();
     if (fc) {
-      $("forecast").innerHTML = `NEA forecast for ${fc.date}: 24-hr PSI <b>${fc.lower}–${fc.upper}</b> <span class="pill" style="background:${bandColor(fc.upper)}">${band(fc.upper)[1]}</span>`;
+      const pos = v => Math.min(100, v <= 50 ? v / 50 * 12.5 : v <= 100 ? 12.5 + (v - 50) / 50 * 12.5 : v <= 300 ? 25 + (v - 100) / 200 * 50 : 75 + (v - 300) / 200 * 25);
+      $("forecast").innerHTML = `<span>NEA forecast for ${fc.date}: 24-hr PSI <b>${fc.lower}–${fc.upper}</b></span>
+        <span class="pill ${inkOn(fc.upper)}" style="background:${bandColor(fc.upper)}">${band(fc.upper)[1]}</span>
+        <div class="fc-wrap"><div class="fc-range"></div><div class="fc-mark" style="left:${pos(fc.lower)}%;width:max(6px,${pos(fc.upper) - pos(fc.lower)}%)"></div></div>`;
       if (fc.upper >= threshold && fc.date !== lastWarnedForecast) {
         lastWarnedForecast = fc.date;
         raiseWarning(`PSI forecast warning for ${fc.date}`, ` NEA forecasts 24-hr PSI of ${fc.lower}–${fc.upper}, which may reach ${threshold}+.`);
@@ -443,6 +806,8 @@ async function check() {
       : "Forecast unavailable: " + e.message;
     log("Forecast fetch failed: " + e.message);
   }
+  $("refreshBtn").disabled = false;
+  tickLive();
 }
 
 $("armBtn").onclick = armAlarm;
@@ -460,9 +825,20 @@ $("threshold").onchange = e => {
   }
 };
 
+initGauge();
+setGauge(0);
 initMap();
+applyTheme();
+initHaze();
 check();
 setInterval(check, POLL_MS);
+setInterval(tickLive, 1000);
+let lastW = 0;
+addEventListener("resize", () => {
+  const w = $("chartWrap").clientWidth;
+  if (latestItems.length && Math.abs(w - lastW) > 20) { lastW = w; renderChart(latestItems); }
+  if (map) { map.invalidateSize(); map.fitBounds(SG_BOUNDS); }
+});
 </script>
 </body>
 </html>
