@@ -854,16 +854,19 @@ const POLLUTANTS = [
   ["co_eight_hour_max", "CO (8-hr max)", "mg/m³", "co_sub_index"],
 ];
 let map = null, tiles = null;
+// CARTO Basemaps key (a browser key: it is sent with every tile request, so it is visible to visitors by design)
+const CARTO_KEY = "cb1_5445_1_3b5abf1a8552a4b5640487c1";
 const SG_BOUNDS = [[1.235, 103.62], [1.47, 104.04]];
 const zoneLabels = {}, zoneHalos = {};
 
 function setTiles() {
   if (!map) return;
-  const style = isDark() ? "dark_all" : "light_all";
+  const style = isDark() ? "dark_all" : "rastertiles/voyager";
   if (tiles && tiles.options.style === style) return;
   if (tiles) map.removeLayer(tiles);
-  tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`, {
-    style, maxZoom: 19, subdomains: "abcd",
+  const keyParam = CARTO_KEY ? `?key=${encodeURIComponent(CARTO_KEY)}` : "";
+  tiles = L.tileLayer(`https://basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${keyParam}`, {
+    style, maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
   }).addTo(map);
 }
