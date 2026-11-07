@@ -181,9 +181,6 @@
 
   .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
   .region .extra b { color: var(--text); font-weight: 600; }
-  .logcard { padding: 12px 18px; }
-  details.logbox summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
-  .log { margin-top: 8px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
   footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--muted); }
   footer a { color: inherit; }
 
@@ -268,9 +265,6 @@
     <div class="band-legend" id="bandLegend"></div>
   </section>
 
-  <section class="card logcard">
-    <details class="logbox"><summary>Activity log</summary><div class="log" id="log"></div></details>
-  </section>
 
   <footer>Data: <a href="https://data.gov.sg" target="_blank" rel="noopener">data.gov.sg</a> (NEA) · Map © OpenStreetMap contributors © CARTO</footer>
 </main>
@@ -313,7 +307,7 @@ function bandColor(psi) { return getComputedStyle(document.documentElement).getP
 function inkOn(psi) { return band(psi)[1] === "Unhealthy" ? "dark-ink" : ""; }
 function log(msg) {
   const t = new Date().toLocaleTimeString("en-SG", { hour12: false });
-  $("log").insertAdjacentHTML("afterbegin", `<div>[${t}] ${msg}</div>`);
+  console.info(`[${t}] ${msg}`); // kept in the browser console for troubleshooting
 }
 function sgDate(offsetDays = 0) {
   const d = new Date(Date.now() + offsetDays * 864e5);
