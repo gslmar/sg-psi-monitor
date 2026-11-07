@@ -134,17 +134,23 @@
   .advice i { flex: 0 0 4px; align-self: stretch; border-radius: 2px; background: var(--band, var(--moderate)); }
 
   /* Regions */
-  .regions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .region { border-radius: 12px; padding: 10px 12px 8px; border: 1px solid var(--border); background: var(--card-2); transition: transform .2s, box-shadow .2s; position: relative; overflow: hidden; }
-  .region:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .region-card { display: flex; flex-direction: column; }
+  .regions { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .region { flex: 1; min-height: 64px; display: grid; grid-template-columns: minmax(84px, .9fr) minmax(120px, 1.3fr) minmax(90px, 1.4fr); align-items: center; gap: 12px;
+    border-radius: 12px; padding: 8px 14px 8px 16px; border: 1px solid var(--border); background: var(--card-2); transition: transform .2s, box-shadow .2s; position: relative; overflow: hidden; }
+  .region:hover { transform: translateX(2px); box-shadow: var(--shadow); }
   .region::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rc); }
-  .region .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-  .region .name { font-size: 12.5px; font-weight: 600; text-transform: capitalize; }
-  .region .val { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .region .delta { font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 500; }
-  .region .bandtag { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-  .region .bandtag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .region svg { display: block; width: 100%; height: 30px; margin-top: 4px; }
+  .region .who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .region .name { font-size: 14px; font-weight: 650; text-transform: capitalize; }
+  .region .val { font-size: 28px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .region .delta { font-size: 12px; color: var(--muted); margin-left: 5px; font-weight: 500; }
+  .region .bandtag { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .region .bandtag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .region svg { display: block; width: 100%; height: 100%; max-height: 54px; min-height: 30px; }
+  @media (max-width: 520px) {
+    .region { grid-template-columns: 1fr 1.3fr; grid-template-rows: auto auto; row-gap: 6px; }
+    .region svg { grid-column: 1 / -1; height: 30px; }
+  }
   .region.over { border-color: var(--hazard); box-shadow: inset 0 0 0 1px var(--hazard); }
 
   /* Map */
@@ -173,7 +179,7 @@
   .leaflet-popup-content td { padding: 1px 10px 1px 0; }
   .leaflet-popup-content td + td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
-  .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
   .region .extra b { color: var(--text); font-weight: 600; }
   .logcard { padding: 12px 18px; }
   details.logbox summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
@@ -247,8 +253,8 @@
       </div>
       <div class="advice" id="advice" hidden><i></i><span id="adviceText"></span></div>
     </section>
-    <section class="card">
-      <div class="card-head"><h2>By region</h2><span class="sub">change vs 1 hr ago · 24-hr trend</span></div>
+    <section class="card region-card">
+      <div class="card-head"><h2>By region</h2><span class="sub">24-hr PSI · change vs 1 hr ago · PM2.5 µg/m³ · 24-hr trend</span></div>
       <div class="regions" id="regions"></div>
     </section>
   </div>
@@ -557,9 +563,8 @@ function renderLive(items, animate = true) {
     const pts = series.map((s, i) => `${(i / Math.max(series.length - 1, 1)) * 100},${26 - ((s - lo) / span) * 22}`).join(" ");
     return `
     <div class="region ${v >= threshold ? "over" : ""}" style="--rc:${RC(r)}">
-      <div class="top"><span class="name">${r}</span><span class="bandtag"><i style="background:${bandColor(v)}"></i>${band(v)[1]}</span></div>
-      <div class="val">${v}<span class="delta">${d > 0 ? "▲" + d : d < 0 ? "▼" + -d : "–"}</span></div>
-      ${extraLine(latest.readings, r)}
+      <div class="who"><span class="name">${r}</span><span class="bandtag"><i style="background:${bandColor(v)}"></i>${band(v)[1]}</span></div>
+      <div><div class="val">${v}<span class="delta">${d > 0 ? "▲" + d : d < 0 ? "▼" + -d : "–"}</span></div>${extraLine(latest.readings, r)}</div>
       <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
         <polyline points="0,30 ${pts} 100,30" fill="${RC(r)}" opacity=".12" stroke="none"/>
         <polyline points="${pts}" fill="none" stroke="${RC(r)}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
@@ -603,9 +608,9 @@ function renderHeroExtras(items, psi, worst) {
 function extraLine(rd, r) {
   const p1 = num(rd.pm25_one_hourly?.[r]), p24 = num(rd.pm25_twenty_four_hourly?.[r]);
   const parts = [];
-  if (p1 != null) parts.push(`PM2.5 1-hr <b>${p1}</b>`);
+  if (p1 != null) parts.push(`1-hr <b>${p1}</b>`);
   if (p24 != null) parts.push(`24-hr <b>${p24}</b>`);
-  return parts.length ? `<div class="extra">${parts.join(" · ")} µg/m³</div>` : "";
+  return parts.length ? `<div class="extra">PM2.5 ${parts.join(" · ")}</div>` : "";
 }
 
 // ---------- Zone map ----------
