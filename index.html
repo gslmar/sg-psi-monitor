@@ -116,6 +116,8 @@
   .gauge-wrap { position: relative; max-width: 340px; margin: 4px auto 0; }
   #gauge { width: 100%; height: auto; display: block; overflow: visible; }
   #gauge .tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #gauge .blabel { fill: var(--muted); font-size: 10.5px; font-weight: 500; letter-spacing: .01em; transition: fill .4s; }
+  #gauge .blabel.on { fill: var(--text); font-weight: 700; font-size: 11.5px; }
   #needle { transform-origin: 170px 170px; transition: transform 1.4s cubic-bezier(.2,.9,.25,1.15); }
   .gauge-num { position: absolute; left: 0; right: 0; bottom: 4px; }
   .big { font-size: 60px; font-weight: 750; line-height: 1; letter-spacing: -.03em; }
@@ -198,6 +200,23 @@
   table.data th { color: var(--muted); font-weight: 600; text-transform: capitalize; }
   .table-wrap { max-height: 320px; overflow: auto; }
 
+  /* Pollutant breakdown */
+  .drivers { width: 100%; border-collapse: separate; border-spacing: 0 6px; font-size: 13px; }
+  .drivers th { color: var(--muted); font-weight: 600; font-size: 12px; text-align: left; padding: 0 8px 2px; white-space: nowrap; }
+  .drivers td { padding: 6px 8px; background: var(--card-2); vertical-align: middle; white-space: nowrap; }
+  .drivers td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; text-transform: capitalize; border-left: 4px solid var(--rc); }
+  .drivers td:last-child { border-radius: 0 10px 10px 0; }
+  .si { display: flex; align-items: center; gap: 6px; min-width: 70px; font-variant-numeric: tabular-nums; }
+  .si .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; min-width: 24px; }
+  .si .bar i { display: block; height: 100%; border-radius: 3px; }
+  .si.main b { text-decoration: underline; text-underline-offset: 3px; }
+  .main-tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); white-space: nowrap; }
+  .drivers-wrap { overflow-x: auto; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .region .extra { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .region .extra b { color: var(--text); font-weight: 600; }
+  select { font: inherit; font-size: 12.5px; border-radius: 9px; border: 1px solid var(--border); background: var(--card-2); color: var(--text); padding: 5px 8px; }
+  .head-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   details.logbox { margin-top: 14px; }
   details.logbox summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
   .log { margin-top: 8px; font: 12px/1.6 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 160px; overflow: auto; }
@@ -253,8 +272,10 @@
       <canvas id="haze" aria-hidden="true"></canvas>
       <div class="label">Highest 24-hr PSI in Singapore</div>
       <div class="gauge-wrap">
-        <svg id="gauge" viewBox="0 0 340 190" role="img" aria-label="PSI gauge">
+        <svg id="gauge" viewBox="-4 -4 348 194" role="img" aria-label="PSI gauge">
+          <defs id="gaugeDefs"></defs>
           <g id="gaugeArcs"></g>
+          <g id="gaugeLabels"></g>
           <g id="gaugeTicks"></g>
           <g id="needle" style="transform: rotate(-90deg)">
             <path d="M170 52 L175 170 L165 170 Z" fill="var(--text)"/>
@@ -274,6 +295,12 @@
     </section>
   </div>
 
+  <section class="card" style="margin-bottom:16px" id="driversCard" hidden>
+    <div class="card-head"><h2>What's driving the PSI</h2><span class="sub">Sub-index per pollutant · the highest one sets the region's PSI</span></div>
+    <div class="drivers-wrap" id="drivers"></div>
+    <div class="note" id="driversNote"></div>
+  </section>
+
   <section class="card map-card">
     <div class="card-head">
       <h2>Haze map by zone</h2>
@@ -286,8 +313,12 @@
   <section class="card">
     <div class="card-head">
       <h2>Last 24 hours</h2>
+      <div class="head-ctl">
+      <label for="metric" style="color:var(--muted)">Show</label>
+      <select id="metric" aria-label="Reading to chart"></select>
       <div class="seg" role="group" aria-label="View">
         <button id="viewChart" aria-pressed="true">Chart</button><button id="viewTable" aria-pressed="false">Table</button>
+      </div>
       </div>
     </div>
     <div class="legend" id="legend"></div>
@@ -304,6 +335,7 @@
 
 <script>
 const REALTIME_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi";
+const PM25_URL = "https://api-open.data.gov.sg/v2/real-time/api/pm25";
 const FORECAST_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=d_c2c7fa70f297cdaee13afbe53a900eb9";
 const POLL_MS = 5 * 60 * 1000;
 const REGIONS = ["north", "south", "east", "west", "central"];
@@ -317,6 +349,32 @@ const ADVICE = {
   "Hazardous": "Minimise outdoor activity. Wear an N95 mask if you must go outside.",
 };
 const GAUGE_MAX = 400;
+// NEA 1-hr PM2.5 bands
+const PM_BANDS = [[55, "Normal", "--good"], [150, "Elevated", "--unhealthy"], [250, "High", "--very"], [Infinity, "Very high", "--hazard"]];
+const pmBand = v => PM_BANDS.find(b => v <= b[0]);
+// Sub-indices in the PSI API (the region's PSI is the highest of these)
+const SUBS = [
+  ["pm25_sub_index", "PM2.5"], ["pm10_sub_index", "PM10"], ["o3_sub_index", "O₃"], ["co_sub_index", "CO"], ["so2_sub_index", "SO₂"],
+];
+// Everything the chart can show; options only appear if the API returned them
+const METRICS = [
+  { key: "psi_twenty_four_hourly", name: "24-hr PSI", unit: "", scale: "psi" },
+  { key: "pm25_one_hourly", name: "PM2.5 1-hr", unit: "µg/m³", scale: "pm" },
+  ...SUBS.map(([key, n]) => ({ key, name: `${n} sub-index`, unit: "", scale: "psi" })),
+  { key: "pm25_twenty_four_hourly", name: "PM2.5 24-hr", unit: "µg/m³" },
+  { key: "pm10_twenty_four_hourly", name: "PM10 24-hr", unit: "µg/m³" },
+  { key: "o3_eight_hour_max", name: "O₃ 8-hr max", unit: "µg/m³" },
+  { key: "no2_one_hour_max", name: "NO₂ 1-hr max", unit: "µg/m³" },
+  { key: "so2_twenty_four_hourly", name: "SO₂ 24-hr", unit: "µg/m³" },
+  { key: "co_eight_hour_max", name: "CO 8-hr max", unit: "mg/m³" },
+];
+const num = v => (v == null || v === "" || !Number.isFinite(+v) ? null : +v);
+const val = (it, key, r) => num(it.readings?.[key]?.[r]);
+function dominant(rd, r) {
+  let best = null;
+  SUBS.forEach(([k, n]) => { const v = num(rd[k]?.[r]); if (v != null && (!best || v > best.v)) best = { k, n, v }; });
+  return best;
+}
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = id => document.getElementById(id);
@@ -327,6 +385,7 @@ const store = {
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
 let threshold = Number(store.get("psiThreshold")) || 200;
+let metricKey = store.get("psiMetric") || "psi_twenty_four_hourly";
 $("threshold").value = threshold;
 let lastAlarmedReading = null, lastWarnedForecast = null;
 let latestItems = [], nextCheckAt = Date.now(), lastSuccess = 0;
@@ -476,7 +535,26 @@ async function fetchLive() {
     const latest = await getJson(REALTIME_URL);
     items.push(...latest.data.items);
   }
-  return items.slice(-24);
+  // zone label positions straight from the API
+  const meta = today.data.regionMetadata || yesterday?.data?.regionMetadata || [];
+  meta.forEach(m => {
+    const ll = m.labelLocation, k = String(m.name || "").toLowerCase();
+    if (REGIONS.includes(k) && Number.isFinite(+ll?.latitude) && Number.isFinite(+ll?.longitude)) LABEL_AT[k] = [+ll.latitude, +ll.longitude];
+  });
+  const out = items.slice(-24);
+  await mergePm25(out);
+  return out;
+}
+// 1-hr PM2.5 comes from NEA's companion endpoint; joined onto PSI readings by hour
+const hourKey = ts => Math.round(new Date(ts).getTime() / 3600e3);
+async function mergePm25(items) {
+  try {
+    const res = await Promise.all([0, -1].map(d => getJson(`${PM25_URL}?date=${sgDate(d)}`).catch(() => null)));
+    const byHour = {};
+    res.forEach(j => (j?.data?.items || []).forEach(i => { if (i.readings?.pm25_one_hourly) byHour[hourKey(i.timestamp)] = i.readings.pm25_one_hourly; }));
+    items.forEach(it => { const v = byHour[hourKey(it.timestamp)]; if (v) it.readings.pm25_one_hourly = v; });
+    if (!Object.keys(byHour).length) log("PM2.5 1-hr: no readings returned");
+  } catch (e) { log("PM2.5 1-hr fetch failed: " + e.message); }
 }
 async function fetchForecast() {
   const j = await getJson(FORECAST_URL);
@@ -504,6 +582,11 @@ function initGauge() {
     BANDS.map(([, , v], i) =>
       `<path d="${arcPath(stops[i] + (i ? 1.2 : 0), stops[i + 1] - (i < 4 ? 1.2 : 0), GR)}" stroke="var(${v})" stroke-width="${GW}" fill="none" stroke-linecap="${i === 0 || i === 4 ? "round" : "butt"}"/>`).join("") +
     `<path id="thrMark" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>`;
+  // health-status names curved along each band of the meter
+  const LR = GR + GW / 2 + 6;
+  $("gaugeDefs").innerHTML = BANDS.map((b, i) => `<path id="bandArc${i}" d="${arcPath(stops[i], stops[i + 1], LR)}"/>`).join("");
+  $("gaugeLabels").innerHTML = BANDS.map(([, name], i) =>
+    `<text class="blabel" id="blabel${i}" dy="-2"><textPath href="#bandArc${i}" startOffset="50%" text-anchor="middle">${name}</textPath></text>`).join("");
   $("gaugeTicks").innerHTML = stops.map(v => {
     const [x, y] = polar(angleFor(v), GR - GW / 2 - 14);
     return `<text class="tick" x="${x}" y="${y + 3}" text-anchor="middle">${v === GAUGE_MAX ? v + "+" : v}</text>`;
@@ -512,6 +595,8 @@ function initGauge() {
 function setGauge(v) {
   const deg = -90 + (Math.min(v, GAUGE_MAX) / GAUGE_MAX) * 180;
   $("needle").style.transform = `rotate(${deg}deg)`;
+  const bi = BANDS.indexOf(band(v));
+  BANDS.forEach((b, i) => $("blabel" + i)?.classList.toggle("on", i === bi && latestItems.length > 0));
   const a = angleFor(threshold), [x0, y0] = polar(a, GR - GW / 2 - 3), [x1, y1] = polar(a, GR + GW / 2 + 3);
   $("thrMark").setAttribute("d", `M${x0} ${y0} L${x1} ${y1}`);
 }
@@ -580,7 +665,8 @@ function renderLive(items, animate = true) {
   $("maxBand").textContent = bandName;
   $("maxBand").className = "pill " + inkOn(worst);
   $("maxBand").style.background = bandColor(worst);
-  $("meta").textContent = `Worst: ${cap(worstRegion)} · reading at ${fmtTime(latest.timestamp)}`;
+  const dom = dominant(latest.readings, worstRegion);
+  $("meta").textContent = `Worst: ${cap(worstRegion)}${dom ? ` · main pollutant ${dom.n}` : ""} · reading at ${fmtTime(latest.timestamp)}`;
   $("advice").hidden = false; $("adviceText").textContent = ADVICE[bandName];
   haze.level = Math.min(1, worst / 300);
   if (reduceMotion) drawHaze(0, 0);
@@ -594,6 +680,7 @@ function renderLive(items, animate = true) {
     <div class="region ${v >= threshold ? "over" : ""}" style="--rc:${RC(r)}">
       <div class="top"><span class="name">${r}</span><span class="bandtag"><i style="background:${bandColor(v)}"></i>${band(v)[1]}</span></div>
       <div class="val">${v}<span class="delta">${d > 0 ? "▲" + d : d < 0 ? "▼" + -d : "–"}</span></div>
+      ${extraLine(latest.readings, r)}
       <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
         <polyline points="0,30 ${pts} 100,30" fill="${RC(r)}" opacity=".12" stroke="none"/>
         <polyline points="${pts}" fill="none" stroke="${RC(r)}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
@@ -601,48 +688,101 @@ function renderLive(items, animate = true) {
     </div>`;
   }).join("");
 
+  renderDrivers(latest);
+  fillMetricSelect(latest);
   renderChart(items);
   renderTable(items);
   renderMap(latest);
   return { latest, psi, worst };
 }
 
+function extraLine(rd, r) {
+  const dom = dominant(rd, r), pm = num(rd.pm25_one_hourly?.[r]);
+  const parts = [];
+  if (dom) parts.push(`Main <b>${dom.n}</b>`);
+  if (pm != null) parts.push(`PM2.5 1-hr <b>${pm}</b>`);
+  return parts.length ? `<div class="extra">${parts.join(" · ")}</div>` : "";
+}
+
+function renderDrivers(latest) {
+  const rd = latest.readings, subs = SUBS.filter(([k]) => rd[k]);
+  const hasPm = !!rd.pm25_one_hourly;
+  $("driversCard").hidden = !subs.length && !hasPm;
+  if ($("driversCard").hidden) return;
+  const scaleMax = Math.max(100, ...REGIONS.flatMap(r => subs.map(([k]) => num(rd[k][r]) || 0)));
+  $("drivers").innerHTML = `<table class="drivers"><thead><tr><th>Region</th><th>PSI</th>${subs.map(([, n]) => `<th>${n}</th>`).join("")}${hasPm ? "<th>PM2.5 1-hr</th>" : ""}</tr></thead><tbody>` +
+    REGIONS.map(r => {
+      const dom = dominant(rd, r), psi = num(rd.psi_twenty_four_hourly?.[r]);
+      const pm = hasPm ? num(rd.pm25_one_hourly[r]) : null;
+      return `<tr style="--rc:${RC(r)}"><td>${r}</td>
+        <td><b>${psi ?? "–"}</b>${dom ? ` <span class="main-tag" title="Pollutant setting the PSI">${dom.n}</span>` : ""}</td>` +
+        subs.map(([k, n]) => {
+          const v = num(rd[k][r]);
+          if (v == null) return "<td>–</td>";
+          return `<td><div class="si ${dom?.k === k ? "main" : ""}" title="${n} sub-index ${v} (${band(v)[1]})"><b>${v}</b><span class="bar"><i style="width:${Math.max(3, v / scaleMax * 100)}%;background:${bandColor(v)}"></i></span></div></td>`;
+        }).join("") +
+        (hasPm ? `<td>${pm == null ? "–" : `<span class="bandtag" style="display:inline-flex;align-items:center;gap:5px"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:var(${pmBand(pm)[2]})"></i><b>${pm}</b> ${pmBand(pm)[1]}</span>`}</td>` : "") +
+        `</tr>`;
+    }).join("") + `</tbody></table>`;
+  $("driversNote").textContent = `Bars are coloured by PSI band.${hasPm ? " PM2.5 1-hr bands (µg/m³): Normal 0–55, Elevated 56–150, High 151–250, Very high 251+." : ""} Reading at ${fmtTime(latest.timestamp)}.`;
+}
+
+function fillMetricSelect(latest) {
+  const avail = METRICS.filter(m => latest.readings[m.key]);
+  if (!avail.some(m => m.key === metricKey)) metricKey = "psi_twenty_four_hourly";
+  const html = avail.map(m => `<option value="${m.key}" ${m.key === metricKey ? "selected" : ""}>${m.name}${m.unit ? ` (${m.unit})` : ""}</option>`).join("");
+  if ($("metric").innerHTML !== html) $("metric").innerHTML = html;
+}
+$("metric").onchange = e => {
+  metricKey = e.target.value; store.set("psiMetric", metricKey);
+  if (latestItems.length) { renderChart(latestItems); renderTable(latestItems); }
+};
+const curMetric = () => METRICS.find(m => m.key === metricKey) || METRICS[0];
+
 let chartGeom = null;
 function renderChart(items) {
   const W = Math.max(320, Math.round($("chartWrap").clientWidth || 900)), H = W < 600 ? 240 : 280, L = 36, R = 78, T = 14, B = 28;
   $("chart").setAttribute("viewBox", `0 0 ${W} ${H}`);
   const every = Math.max(1, Math.ceil(items.length / Math.floor((W - L - R) / 48)));
-  const all = items.flatMap(i => REGIONS.map(r => i.readings.psi_twenty_four_hourly[r]));
-  const yMax = Math.max(threshold, ...all) * 1.12;
+  const M = curMetric(), isPsi = M.key === "psi_twenty_four_hourly";
+  const all = items.flatMap(i => REGIONS.map(r => val(i, M.key, r))).filter(v => v != null);
+  const yMax = Math.max(isPsi ? threshold : 0, ...all, M.unit === "mg/m³" ? 1 : 10) * 1.12;
   const x = i => L + (items.length < 2 ? 0 : (i / (items.length - 1)) * (W - L - R));
   const y = v => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
-  const step = yMax > 300 ? 100 : yMax > 120 ? 50 : 25;
+  const nice = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200];
+  const step = nice.find(n => yMax / n <= 6) || 500;
+  const fmtN = v => +v.toFixed(2);
 
   let s = "";
   // faint PSI band zones behind the data
   let lo = 0;
-  BANDS.forEach(([max, , v]) => {
+  const zones = M.scale === "psi" ? BANDS : M.scale === "pm" ? PM_BANDS : [];
+  zones.forEach(([max, , v]) => {
     const top = Math.min(max, yMax);
     if (lo < yMax) s += `<rect x="${L}" width="${W - L - R}" y="${y(top)}" height="${y(lo) - y(top)}" fill="var(${v})" opacity=".06"/>`;
     lo = max;
   });
   for (let v = 0; v <= yMax; v += step)
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmtN(v)}</text>`;
   s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--axis)"/>`;
+  if (M.unit) s += `<text x="${L - 8}" y="${T - 2}" text-anchor="end" style="font-size:10px">${M.unit}</text>`;
   items.forEach((it, i) => {
     if ((items.length - 1 - i) % every === 0)
       s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${fmtHour(it.timestamp)}</text>`;
   });
-  s += `<line x1="${L}" x2="${W - R}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
-  s += `<text x="${L + 6}" y="${y(threshold) - 6}" style="fill:var(--hazard);font-weight:600">Alarm ${threshold}</text>`;
+  if (isPsi) {
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="6 4" stroke-width="1.5"/>`;
+    s += `<text x="${L + 6}" y="${y(threshold) - 6}" style="fill:var(--hazard);font-weight:600">Alarm ${threshold}</text>`;
+  }
 
   REGIONS.forEach(r => {
-    const pts = items.map((it, i) => `${x(i).toFixed(1)},${y(it.readings.psi_twenty_four_hourly[r]).toFixed(1)}`).join(" ");
-    s += `<polyline class="series" data-r="${r}" points="${pts}" fill="none" stroke="${RC(r)}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
+    let d = "", pen = false; // break the line where a reading is missing
+    items.forEach((it, i) => { const v = val(it, M.key, r); if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`; pen = true; });
+    s += `<path class="series" data-r="${r}" d="${d}" fill="none" stroke="${RC(r)}" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   // direct labels at line ends, nudged apart so they never collide
-  const last = items[items.length - 1].readings.psi_twenty_four_hourly;
-  const ends = REGIONS.map(r => ({ r, v: last[r], yy: y(last[r]) })).sort((a, b) => a.yy - b.yy);
+  const li = items.length - 1;
+  const ends = REGIONS.map(r => ({ r, v: val(items[li], M.key, r) })).filter(e => e.v != null).map(e => ({ ...e, yy: y(e.v) })).sort((a, b) => a.yy - b.yy);
   for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 13) ends[i].yy = ends[i - 1].yy + 13;
   ends.forEach(e => {
     const ex = x(items.length - 1);
@@ -652,7 +792,9 @@ function renderChart(items) {
   s += `<g id="cross" style="display:none"><line id="crossLine" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 3"/><g id="crossDots"></g></g>`;
   s += `<rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>`;
   $("chart").innerHTML = s;
-  chartGeom = { items, x, y, L, R, W };
+  if (!all.length) s += `<text x="${(L + W - R) / 2}" y="${(T + H - B) / 2}" text-anchor="middle">No ${M.name} readings in the last 24 hours</text>`;
+  $("chart").setAttribute("aria-label", `24-hour ${M.name} trend by region`);
+  chartGeom = { items, x, y, L, R, W, M };
   $("legend").innerHTML = REGIONS.map(r => `<span data-r="${r}"><i style="background:${RC(r)}"></i>${cap(r)}</span>`).join("");
   wireChartHover();
 }
@@ -664,12 +806,14 @@ function wireChartHover() {
     const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
     const p = pt.matrixTransform(svg.getScreenCTM().inverse());
     const i = Math.max(0, Math.min(items.length - 1, Math.round(((p.x - L) / (W - L - R)) * (items.length - 1))));
-    const it = items[i], psi = it.readings.psi_twenty_four_hourly, xi = x(i);
+    const it = items[i], xi = x(i), M = chartGeom.M;
+    const psi = Object.fromEntries(REGIONS.map(r => [r, val(it, M.key, r)]));
+    const rs = REGIONS.filter(r => psi[r] != null);
     $("cross").style.display = "";
     $("crossLine").setAttribute("x1", xi); $("crossLine").setAttribute("x2", xi);
-    $("crossDots").innerHTML = REGIONS.map(r => `<circle cx="${xi}" cy="${y(psi[r])}" r="4.5" fill="${RC(r)}" stroke="var(--card)" stroke-width="2"/>`).join("");
-    tip.innerHTML = `<div class="t">${fmtTime(it.timestamp)}</div>` + [...REGIONS].sort((a, b) => psi[b] - psi[a])
-      .map(r => `<div class="row"><span><i style="background:${RC(r)}"></i>${r}</span><b>${psi[r]}</b></div>`).join("");
+    $("crossDots").innerHTML = rs.map(r => `<circle cx="${xi}" cy="${y(psi[r])}" r="4.5" fill="${RC(r)}" stroke="var(--card)" stroke-width="2"/>`).join("");
+    tip.innerHTML = `<div class="t">${fmtTime(it.timestamp)} · ${M.name}</div>` + (rs.length ? [...rs].sort((a, b) => psi[b] - psi[a])
+      .map(r => `<div class="row"><span><i style="background:${RC(r)}"></i>${r}</span><b>${psi[r]}${M.unit ? ` <span style="font-weight:400;color:var(--muted)">${M.unit}</span>` : ""}</b></div>`).join("") : "No reading");
     tip.classList.add("show");
     const wrap = $("chartWrap").getBoundingClientRect(), sx = wrap.width / W;
     let left = xi * sx + 14; if (left + tip.offsetWidth > wrap.width) left = xi * sx - tip.offsetWidth - 14;
@@ -686,8 +830,9 @@ function wireChartHover() {
 }
 
 function renderTable(items) {
-  $("tableWrap").innerHTML = `<table class="data"><thead><tr><th>Time</th>${REGIONS.map(r => `<th>${r}</th>`).join("")}</tr></thead><tbody>` +
-    [...items].reverse().map(it => `<tr><td>${fmtTime(it.timestamp)}</td>${REGIONS.map(r => `<td>${it.readings.psi_twenty_four_hourly[r]}</td>`).join("")}</tr>`).join("") +
+  const M = curMetric();
+  $("tableWrap").innerHTML = `<table class="data"><caption style="text-align:left;color:var(--muted);padding:4px 8px">${M.name}${M.unit ? ` (${M.unit})` : ""}</caption><thead><tr><th>Time</th>${REGIONS.map(r => `<th>${r}</th>`).join("")}</tr></thead><tbody>` +
+    [...items].reverse().map(it => `<tr><td>${fmtTime(it.timestamp)}</td>${REGIONS.map(r => `<td>${val(it, M.key, r) ?? "–"}</td>`).join("")}</tr>`).join("") +
     `</tbody></table>`;
 }
 function setView(table) {
@@ -698,15 +843,15 @@ $("viewChart").onclick = () => { setView(false); latestItems.length && renderCha
 $("viewTable").onclick = () => setView(true);
 
 // ---------- Zone map ----------
-// Label points from the API's regionMetadata
+// Fallback label points; replaced by the API's regionMetadata on each fetch
 const LABEL_AT = { north: [1.41803, 103.82], south: [1.29587, 103.82], east: [1.35735, 103.94], west: [1.35735, 103.70], central: [1.35735, 103.82] };
 const POLLUTANTS = [
-  ["pm25_twenty_four_hourly", "PM2.5 (24-hr)", "µg/m³"],
-  ["pm10_twenty_four_hourly", "PM10 (24-hr)", "µg/m³"],
-  ["o3_eight_hour_max", "O₃ (8-hr max)", "µg/m³"],
+  ["pm25_twenty_four_hourly", "PM2.5 (24-hr)", "µg/m³", "pm25_sub_index"],
+  ["pm10_twenty_four_hourly", "PM10 (24-hr)", "µg/m³", "pm10_sub_index"],
+  ["o3_eight_hour_max", "O₃ (8-hr max)", "µg/m³", "o3_sub_index"],
   ["no2_one_hour_max", "NO₂ (1-hr max)", "µg/m³"],
-  ["so2_twenty_four_hourly", "SO₂ (24-hr)", "µg/m³"],
-  ["co_eight_hour_max", "CO (8-hr max)", "mg/m³"],
+  ["so2_twenty_four_hourly", "SO₂ (24-hr)", "µg/m³", "so2_sub_index"],
+  ["co_eight_hour_max", "CO (8-hr max)", "mg/m³", "co_sub_index"],
 ];
 let map = null, tiles = null;
 const SG_BOUNDS = [[1.235, 103.62], [1.47, 104.04]];
@@ -741,13 +886,19 @@ function renderMap(latest) {
   const rd = latest.readings, psi = rd.psi_twenty_four_hourly;
   REGIONS.forEach(r => {
     const v = psi[r], col = bandColor(v), over = v >= threshold;
+    zoneHalos[r].setLatLng(LABEL_AT[r]); zoneLabels[r].setLatLng(LABEL_AT[r]);
     zoneHalos[r].setStyle({ fillColor: col, fillOpacity: 0.16 + Math.min(v, 300) / 300 * 0.3 });
     zoneHalos[r].setRadius(2600 + Math.min(v, 300) * 9);
     zoneHalos[r].getElement()?.classList.toggle("over", over);
     zoneLabels[r].bindPopup(`
       <strong>${cap(r)}</strong>: 24-hr PSI <strong>${v}</strong> <span class="pill ${inkOn(v)}" style="background:${col};padding:1px 8px;font-size:11px">${band(v)[1]}</span>
-      <table>${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit]) =>
-        `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td></tr>`).join("")}</table>
+      ${(() => { const dom = dominant(rd, r); return dom ? `<div style="margin-top:4px">Main pollutant: <b>${dom.n}</b></div>` : ""; })()}
+      <table><tr><td style="opacity:.7">Pollutant</td><td style="opacity:.7;font-weight:400">Level</td><td style="opacity:.7;font-weight:400;text-align:right">Sub-index</td></tr>
+      ${num(rd.pm25_one_hourly?.[r]) != null ? `<tr><td>PM2.5 (1-hr)</td><td>${rd.pm25_one_hourly[r]} µg/m³ <span style="font-weight:400;opacity:.75">${pmBand(+rd.pm25_one_hourly[r])[1]}</span></td><td style="text-align:right">–</td></tr>` : ""}
+      ${POLLUTANTS.filter(([k]) => rd[k]?.[r] != null).map(([k, name, unit, sub]) => {
+        const si = sub ? num(rd[sub]?.[r]) : null;
+        return `<tr><td>${name}</td><td>${rd[k][r]} ${unit}</td><td style="text-align:right">${si == null ? "–" : `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${bandColor(si)};margin-right:4px"></span>${si}`}</td></tr>`;
+      }).join("")}</table>
       <span style="opacity:.7">Reading at ${fmtTime(latest.timestamp)}</span>`);
     zoneLabels[r].setIcon(L.divIcon({
       className: "zone-label",

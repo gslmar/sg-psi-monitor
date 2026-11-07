@@ -7,8 +7,9 @@ Live haze monitor for Singapore that sounds an alarm when the 24-hr PSI reaches 
 - Animated PSI gauge for the highest 24-hr reading, with a drifting haze effect that thickens as PSI rises and health advice for the current band
 - Live status badge with countdown to the next refresh (every 5 minutes)
 - Region cards with change since the last hour and a 24-hr sparkline
+- "What's driving the PSI" table: each region's pollutant sub-indices (PM2.5, PM10, O₃, CO, SO₂), the main pollutant, and 1-hr PM2.5 with NEA's band
 - Haze map with a glowing ring per zone, coloured and sized by PSI; click a reading for PM2.5, PM10, O₃, NO₂, SO₂ and CO
-- Interactive 24-hour trend chart (hover for values, or switch to a table) and NEA's daily PSI forecast
+- Interactive 24-hour trend chart for PSI, 1-hr PM2.5, any sub-index or pollutant level (hover for values, or switch to a table) and NEA's daily PSI forecast
 - Light and dark themes (follows your system, or pick one with the theme button)
 - iPhone-style alarm, flashing banner and desktop notification when any region crosses the threshold
 
@@ -18,7 +19,8 @@ Click **Arm alarm** after opening the page (browsers only play sound after a cli
 
 From [data.gov.sg](https://data.gov.sg) (no API key needed):
 
-- Live readings: `https://api-open.data.gov.sg/v2/real-time/api/psi`
+- Live readings: `https://api-open.data.gov.sg/v2/real-time/api/psi` (PSI, sub-indices, pollutant levels, zone positions)
+- 1-hr PM2.5: `https://api-open.data.gov.sg/v2/real-time/api/pm25`
 - Daily forecast: dataset `d_c2c7fa70f297cdaee13afbe53a900eb9`
 
 Map tiles © OpenStreetMap contributors.
