@@ -120,7 +120,22 @@
   #gauge .blabel.on { fill: var(--text); font-weight: 700; font-size: 11.5px; }
   #needle { transform-origin: 170px 170px; transition: transform 1.4s cubic-bezier(.2,.9,.25,1.15); }
   .gauge-num { position: absolute; left: 0; right: 0; bottom: 4px; }
-  .big { font-size: 60px; font-weight: 750; line-height: 1; letter-spacing: -.03em; }
+  .big { font-size: 60px; font-weight: 750; line-height: 1; letter-spacing: -.03em; display: inline-flex; align-items: baseline; gap: 6px; }
+  .big .unit { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .trend { margin-top: 6px; font-size: 13px; color: var(--muted); min-height: 18px; }
+  .trend b { color: var(--text); }
+  .trend .up { color: var(--very); } .trend .down { color: var(--good); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px auto 0; max-width: 420px; text-align: left; }
+  .stat { background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+  .stat .k { font-size: 11px; color: var(--muted); }
+  .stat .v { font-size: 18px; font-weight: 700; line-height: 1.2; display: flex; align-items: center; gap: 6px; }
+  .stat .v i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .stat .s { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat.alert { border-color: var(--hazard); }
+  .hero-spark { max-width: 420px; margin: 12px auto 0; text-align: left; }
+  .hero-spark .k { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
+  #heroSpark { width: 100%; height: 56px; display: block; overflow: visible; }
+  #gauge .rdot { transition: cx 1.2s, cy 1.2s; }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
   .pill.dark-ink { color: #1a1300; }
   .hero .meta { margin-top: 12px; color: var(--muted); font-size: 13px; }
@@ -277,15 +292,22 @@
           <g id="gaugeArcs"></g>
           <g id="gaugeLabels"></g>
           <g id="gaugeTicks"></g>
+          <g id="gaugeDots"></g>
           <g id="needle" style="transform: rotate(-90deg)">
             <path d="M170 52 L175 170 L165 170 Z" fill="var(--text)"/>
           </g>
           <circle cx="170" cy="170" r="9" fill="var(--card)" stroke="var(--text)" stroke-width="3"/>
         </svg>
       </div>
-      <div class="big" id="maxVal">–</div>
+      <div class="big"><span id="maxVal">–</span><span class="unit">PSI</span></div>
       <div style="margin-top:8px"><span class="pill" id="maxBand" style="background:var(--muted)">Loading…</span></div>
+      <div class="trend" id="trend"></div>
       <div class="meta" id="meta">Fetching latest readings…</div>
+      <div class="stats" id="stats" hidden></div>
+      <div class="hero-spark" id="heroSparkWrap" hidden>
+        <div class="k"><span>Highest PSI, last 24 hours</span><span id="sparkRange"></span></div>
+        <svg id="heroSpark" viewBox="0 0 400 56" preserveAspectRatio="none" role="img" aria-label="Highest PSI over the last 24 hours"></svg>
+      </div>
       <div class="advice" id="advice" hidden><i></i><span id="adviceText"></span></div>
     </section>
     <section class="card">
@@ -652,6 +674,7 @@ function renderLive(items, animate = true) {
   $("maxBand").style.background = bandColor(worst);
   $("meta").textContent = `Worst: ${cap(worstRegion)} · reading at ${fmtTime(latest.timestamp)}`;
   $("advice").hidden = false; $("adviceText").textContent = ADVICE[bandName];
+  renderHeroExtras(items, psi, worst);
   haze.level = Math.min(1, worst / 300);
   if (reduceMotion) drawHaze(0, 0);
 
@@ -678,6 +701,45 @@ function renderLive(items, animate = true) {
   renderTable(items);
   renderMap(latest);
   return { latest, psi, worst };
+}
+
+function renderHeroExtras(items, psi, worst) {
+  // where every region sits on the dial (the needle shows the worst)
+  // dots that would overlap are spread across three lanes of the band
+  const lanes = [0, -7, 7]; let lane = 0, lastV = -1e9;
+  $("gaugeDots").innerHTML = [...REGIONS].sort((a, b) => psi[a] - psi[b]).map(r => {
+    lane = psi[r] - lastV < 7 ? (lane + 1) % 3 : 0; lastV = psi[r];
+    const [x, y] = polar(angleFor(psi[r]), GR + lanes[lane]);
+    return `<circle class="rdot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="${RC(r)}" stroke="var(--card)" stroke-width="1.5"><title>${cap(r)} ${psi[r]}</title></circle>`;
+  }).join("");
+
+  const maxes = items.map(it => Math.max(...REGIONS.map(r => num(it.readings.psi_twenty_four_hourly?.[r]) ?? -Infinity)));
+  const prev = maxes.length > 1 ? maxes[maxes.length - 2] : null, d = prev == null ? null : worst - prev;
+  $("trend").innerHTML = d == null ? "" : d > 0 ? `<span class="up">▲ ${d}</span> since the last hour` : d < 0 ? `<span class="down">▼ ${-d}</span> since the last hour` : "No change since the last hour";
+
+  const hi = Math.max(...maxes), lo = Math.min(...maxes);
+  const hiAt = items[maxes.lastIndexOf(hi)].timestamp, loAt = items[maxes.lastIndexOf(lo)].timestamp;
+  const gap = threshold - worst;
+  const stat = (k, v, sub, extra = "") => `<div class="stat ${extra}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+  const dot = v => `<i style="background:${bandColor(v)}"></i>`;
+  $("stats").hidden = false;
+  $("stats").innerHTML =
+    stat("24-hr high", `${dot(hi)}${hi}`, `at ${fmtHour(hiAt)}`) +
+    stat("24-hr low", `${dot(lo)}${lo}`, `at ${fmtHour(loAt)}`) +
+    stat("Alarm level", gap > 0 ? `${gap} <span style="font-size:12px;font-weight:500;color:var(--muted)">below</span>` : `${-gap} <span style="font-size:12px;font-weight:500;color:var(--hazard)">over</span>`, `alarm at ${threshold}`, gap <= 0 ? "alert" : "");
+
+  // mini 24-hr trend of the highest reading
+  const W = 400, H = 56, n = maxes.length, yMin = Math.max(0, Math.min(lo, threshold) - 15), yMax = Math.max(hi, threshold) + 10;
+  const x = i => (n < 2 ? W : (i / (n - 1)) * W), y = v => H - 4 - ((v - yMin) / (yMax - yMin)) * (H - 8);
+  const line = maxes.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join("");
+  const col = bandColor(worst);
+  $("heroSpark").innerHTML = `
+    <defs><linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" x2="${W}" y1="${y(threshold)}" y2="${y(threshold)}" stroke="var(--hazard)" stroke-dasharray="4 4" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".7"/>
+    <path d="${line}L${x(n - 1)} ${H}L0 ${H}Z" fill="url(#sparkFill)"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2.25" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  $("sparkRange").textContent = `${fmtHour(items[0].timestamp)} – ${fmtHour(items[n - 1].timestamp)}`;
+  $("heroSparkWrap").hidden = n < 2;
 }
 
 function extraLine(rd, r) {
